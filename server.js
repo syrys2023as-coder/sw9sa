@@ -1,11 +1,37 @@
-require('./bot.js');
 const express = require('express');
+const { Client, GatewayIntentBits } = require('discord.js');
 const path = require('path');
-const app = express();
+const cors = require('cors');
 
+const app = express();
 app.use(express.json());
+app.use(cors());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// ==================== إعدادات بوت الديسكورد ====================
+const client = new Client({
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.DirectMessages,
+        GatewayIntentBits.MessageContent
+    ]
+});
+
+// يفضل وضع هذه المتغيرات في البيئة (Environment Variables) أو تعديلها هنا مباشرة
+const BOT_TOKEN = process.env.BOT_TOKEN || "MTIwOTAzMjg2MTY2ODIyMDkzOA.GN11B0.qg9ltrJVsI-DT3YCo8SYaxLqSX-pqhjQbIXkf8";
+const ACCEPTED_ROLE_ID = process.env.ACCEPTED_ROLE_ID || "1560701862561185842";
+const REJECTED_ROLE_ID = process.env.REJECTED_ROLE_ID || "1560701893016031282";
+
+client.once('ready', () => {
+    console.log(`✅ تم تشغيل بوت ديسكورد والموقع معاً بنجاح باسم ${client.user.tag}`);
+});
+
+// تسجيل الدخول بالبوت
+client.login(BOT_TOKEN).catch(err => console.error("فشل تسجيل دخول البوت:", err));
+
+// ==================== متغيرات النظام وبيانات الذاكرة ====================
 let applicants = [];
 let blacklist = [];
 let deviceApprovals = [];
@@ -124,7 +150,7 @@ app.post('/api/admin/update-points', (req, res) => {
   } catch (err) { res.status(500).json({ success: false }); }
 });
 
-// مسار اتخاذ القرارات (قبول، رفض، فصل)
+// ==================== مسار اتخاذ القرارات ومعالجة الديسكورد داخلياً ====================
 app.post('/api/admin/decision', async (req, res) => {
   try {
     const { applicantId, status, adminNote, addToBlacklist, adminUsername } = req.body;
@@ -143,24 +169,27 @@ app.post('/api/admin/decision', async (req, res) => {
         blacklist.push({ discord: appItem.discord, gameId: appItem.gameId, reason: adminNote || 'مخالفة القوانين' });
       }
 
-      // استخراج الأيدي الرقمي النظيف للديسكورد وتمريره للبوت
+      // المعالجة الفورية المباشرة لبوت الديسكورد (إعطاء الرتب وإرسال الرسائل الخاصة)
       let rawDiscordId = appItem.discordId || appItem.discord;
       let cleanDiscordId = String(rawDiscordId).replace(/\D/g, '');
 
       if (cleanDiscordId) {
         try {
-          await fetch('http://localhost:3001/bot/update-roles', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              discordId: cleanDiscordId, 
-              status: status, 
-              adminUsername: adminUsername || 'الإدارة',
-              adminNote: adminNote || 'لا يوجد سبب محدد'
-            })
-          });
+          const guild = client.guilds.cache.first(); // يأخذ السيرفر الأول الذي يتواجد فيه البوت
+          if (guild) {
+            const member = await guild.members.fetch(cleanDiscordId).catch(() => null);
+            if (member) {
+              if (status === 'مقبول') {
+                if (ACCEPTED_ROLE_ID) await member.roles.add(ACCEPTED_ROLE_ID).catch(() => {});
+                await member.send(`🎉 تم قبول طلبك بواسطة المشرف: ${adminUsername || 'الإدارة'}`).catch(() => {});
+              } else if (status === 'مرفوض') {
+                if (REJECTED_ROLE_ID) await member.roles.add(REJECTED_ROLE_ID).catch(() => {});
+                await member.send(`❌ تم رفض طلبك بواسطة المشرف: ${adminUsername || 'الإدارة'}.\nالسبب: ${adminNote || 'لا يوجد سبب محدد'}`).catch(() => {});
+              }
+            }
+          }
         } catch (botErr) {
-          console.log("تعذر الاتصال ببوت ديسكورد المحلي:", botErr.message);
+          console.log("خطأ أثناء تنفيذ مهام البوت:", botErr.message);
         }
       }
 
@@ -198,5 +227,6 @@ app.post('/api/admin/device-decision', (req, res) => {
   } catch (err) { res.status(500).json({ success: false }); }
 });
 
+// تشغيل السيرفر الموحد على المنفذ الذي تحدده المنصة (Render) تلقائياً
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Wink Admin System running on http://localhost:3000`));
+app.listen(PORT, () => console.log(`Wink Admin System & Bot running on port ${PORT}`));
