@@ -1,0 +1,14 @@
+{
+  "name": "wink-admin-system",
+  "version": "1.0.0",
+  "description": "Wink Admin System",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "discord.js": "^14.14.0",
+    "cors": "^2.8.5"
+  }
+}
