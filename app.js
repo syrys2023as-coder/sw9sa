@@ -1,45 +1,39 @@
 // ==========================================
-// 1. تهيئة Firebase وتثبيت الجلسة (Persistence)
+// 1. تثبيت جلسة الدخول في المتصفح (LOCAL)
+// لمنع تسجيل الخروج عند تحديث الصفحة (F5)
 // ==========================================
-// التأكد من حفظ جلسة المستخدم في ذاكرة المتصفح المحلية (LOCAL)
-// لمنع تسجيل الخروج عند تحديث الصفحة (Refresh / F5)
 firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL)
   .then(() => {
-    console.log("تم تثبيت جلسة الدخول بنجاح.");
+    console.log("تم تثبيت الجلسة بنجاح ولن يتم الخروج عند التحديث.");
   })
   .catch((error) => {
     console.error("خطأ في تثبيت الجلسة:", error);
   });
 
-// متغيرات عامة للتطبيق
+// متغيرات عامة
 let currentUser = null;
 let userRole = 'student'; // 'admin' أو 'student'
 
 // ==========================================
 // 2. مراقب حالة تسجيل الدخول (Auth State Observer)
 // ==========================================
-// يعمل هذا المراقب فور فتح الموقع أو تحديث الصفحة للتحقق من حالة المستخدم
 firebase.auth().onAuthStateChanged(async (user) => {
-  const loadingOverlay = document.getElementById('loading-overlay'); // إن وجد عنصر التحميل
+  const loadingOverlay = document.getElementById('loading-overlay');
   
   if (user) {
-    // حالة: المستخدم مسجل دخوله مسبقاً
     currentUser = user;
-    console.log("المستخدم متصل حالياً:", user.uid);
+    console.log("المستخدم متصل:", user.uid);
 
     try {
-      // جلب بيانات المستخدم وصلاحياته من قاعدة البيانات (Firestore)
+      // جلب بيانات الصلاحيات من قاعدة البيانات (Firestore)
       const userDoc = await firebase.firestore().collection('users').doc(user.uid).get();
       
       if (userDoc.exists) {
         const userData = userDoc.data();
         userRole = userData.role || 'student';
-        
-        // تحديث واجهة المستخدم بالبيانات الشاملة
         updateUIForAuthenticatedUser(userData);
       } else {
-        console.warn("بيانات المستخدم غير موجودة في قاعدة البيانات، جاري إنشاؤها...");
-        // إنشاء ملف للمستخدم الجديد ببيانات افتراضية
+        // إنشاء ملف افتراضي إذا لم يكن موجوداً
         const defaultData = {
           email: user.email,
           role: 'student',
@@ -48,36 +42,47 @@ firebase.auth().onAuthStateChanged(async (user) => {
         await firebase.firestore().collection('users').doc(user.uid).set(defaultData);
         updateUIForAuthenticatedUser(defaultData);
       }
-
-      // إظهار الواجهة الرئيسية وإخفاء صفحة تسجيل الدخول
       showMainApp();
-
     } catch (error) {
-      console.error("حدث خطأ أثناء جلب بيانات المستخدم:", error);
-      showToast("تعذر جلب بيانات الحساب، حاول التحديث مجدداً", "error");
+      console.error("خطأ في جلب بيانات المستخدم:", error);
+      showToast("تعذر جلب بيانات الحساب", "error");
     }
-
   } else {
-    // حالة: لا يوجد مستخدم مسجل دخول (أو قام بالخروج)
     currentUser = null;
     userRole = 'student';
-    console.log("لا يوجد حساب متصل.");
-    
-    // إظهار شاشة تسجيل الدخول وإخفاء لوحة التحكم الرئيسية
+    console.log("لا يوجد مستخدم مسجل دخول.");
     showLoginScreen();
   }
 
-  // إخفاء مؤشر التحميل إن وجد
   if (loadingOverlay) {
     loadingOverlay.style.display = 'none';
   }
 });
 
 // ==========================================
-// 3. دوال تسجيل الدخول والخروج
+// 3. دالة التنقل بين الصفحات (إصلاح خطأ switchView)
 // ==========================================
+function switchView(viewId) {
+    console.log("الانتقال إلى القسم:", viewId);
+    
+    // إخفاء جميع الأقسام العامة إن وجدت
+    const sections = document.querySelectorAll('.app-section');
+    sections.forEach(section => {
+        section.style.display = 'none';
+    });
 
-// دالة تسجيل الدخول
+    // إظهار القسم المطلوب فقط
+    const targetSection = document.getElementById(viewId);
+    if (targetSection) {
+        targetSection.style.display = 'block';
+    } else {
+        console.warn("القسم غير موجود في الصفحة:", viewId);
+    }
+}
+
+// ==========================================
+// 4. دوال تسجيل الدخول والخروج
+// ==========================================
 async function loginUser(email, password) {
   try {
     showLoading(true);
@@ -87,32 +92,28 @@ async function loginUser(email, password) {
   } catch (error) {
     showLoading(false);
     console.error("خطأ تسجيل الدخول:", error);
-    let errorMsg = "فشل تسجيل الدخول. تحقق من البيانات وحاول مجدداً.";
+    let errorMsg = "فشل تسجيل الدخول. تحقق من البيانات.";
     if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
       errorMsg = "البريد الإلكتروني أو كلمة المرور غير صحيحة.";
-    } else if (error.code === 'auth/invalid-email') {
-      errorMsg = "صيغة البريد الإلكتروني غير صحيحة.";
     }
     showToast(errorMsg, "error");
   }
 }
 
-// دالة تسجيل الخروج اليدوي
 async function logoutUser() {
   try {
     await firebase.auth().signOut();
     showToast("تم تسجيل الخروج بنجاح.", "info");
     showLoginScreen();
   } catch (error) {
-    console.error("خطأ أثناء تسجيل الخروج:", error);
+    console.error("خطأ تسجيل الخروج:", error);
     showToast("حدث خطأ أثناء تسجيل الخروج.", "error");
   }
 }
 
 // ==========================================
-// 4. التحكم في عرض الواجهات (UI Switching)
+// 5. التحكم في الواجهات والصلاحيات
 // ==========================================
-
 function showMainApp() {
   const loginSection = document.getElementById('login-section');
   const mainAppSection = document.getElementById('main-app-section');
@@ -130,14 +131,13 @@ function showLoginScreen() {
 }
 
 function updateUIForAuthenticatedUser(userData) {
-  // تحديث أسماء العناصر في الواجهة مثل اسم المستخدم والصورة والتنبيهات
   const userNameElements = document.querySelectorAll('.user-name-display');
   const userRoleElements = document.querySelectorAll('.user-role-display');
 
   userNameElements.forEach(el => el.textContent = userData.name || userData.email || "مستخدم الأكاديمية");
   userRoleElements.forEach(el => el.textContent = userData.role === 'admin' ? 'مدير النظام' : 'طالب / عضو');
 
-  // إظهار أو إخفاء عناصر التحكم بناءً على الصلاحيات (Admin vs Student)
+  // إخفاء أو إظهار قسم الزملاء بناءً على الصلاحيات (Admin فقط)
   const adminElements = document.querySelectorAll('.admin-only');
   adminElements.forEach(el => {
     el.style.display = (userData.role === 'admin') ? 'block' : 'none';
@@ -145,20 +145,33 @@ function updateUIForAuthenticatedUser(userData) {
 }
 
 // ==========================================
-// 5. دوال مساعدة وتنبهات (Helpers & Toasts)
+// 6. التنبيهات المخصصة (Toast Alerts) أسفل اليسار
 // ==========================================
-
 function showToast(message, type = "info") {
-  console.log(`[${type.toUpperCase()}] ${message}`);
-  // إذا كان لديك مكتبة للتنبيهات مثل Toastify أو SweetAlert2 يمكنك تفعيلها هنا:
-  const toastContainer = document.getElementById('toast-container');
-  if (toastContainer) {
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    toast.innerText = message;
-    toastContainer.appendChild(toast);
-    setTimeout(() => toast.remove(), 3000);
+  let toastContainer = document.getElementById('toast-container');
+  
+  // إن لم يكن الحاوية موجودة، يتم إنشاؤها تلقائياً وتثبيتها أسفل اليسار
+  if (!toastContainer) {
+    toastContainer = document.createElement('div');
+    toastContainer.id = 'toast-container';
+    toastContainer.className = 'fixed bottom-5 left-5 z-50 flex flex-col gap-2';
+    document.body.appendChild(toastContainer);
   }
+
+  const toast = document.createElement('div');
+  // ألوان مخصصة: أحمر للأخطاء، أخضر للنجاح، أزرق للمعلومات
+  let bgColor = type === 'error' ? 'bg-red-600' : (type === 'success' ? 'bg-green-600' : 'bg-blue-600');
+  
+  toast.className = `px-4 py-3 text-white rounded-lg shadow-lg text-sm font-medium transition-all duration-300 transform translate-y-0 ${bgColor}`;
+  toast.innerText = message;
+  
+  toastContainer.appendChild(toast);
+  
+  // إزالة التنبيه تلقائياً بعد 3.5 ثانية
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    setTimeout(() => toast.remove(), 300);
+  }, 3500);
 }
 
 function showLoading(enable) {
