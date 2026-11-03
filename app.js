@@ -29,6 +29,36 @@ let payments = [];
 let currentUser = null;
 let chartInstance = null;
 
+// نظام التنبيهات العائم (أسفل اليسار)
+function showToast(message, type = 'error') {
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        container.className = 'fixed bottom-5 left-5 z-50 flex flex-col gap-2 pointer-events-none';
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    const isSuccess = type === 'success';
+    toast.className = `pointer-events-auto px-4 py-3 rounded-2xl text-xs font-bold text-white shadow-2xl transition-all duration-300 transform translate-y-2 opacity-0 flex items-center gap-2 ${
+        isSuccess ? 'bg-emerald-600 border border-emerald-400/30' : 'bg-rose-600 border border-rose-400/30'
+    }`;
+    
+    toast.innerHTML = `<i class="fa-solid ${isSuccess ? 'fa-circle-check text-emerald-200' : 'fa-circle-exclamation text-rose-200'} text-sm"></i> <span>${message}</span>`;
+    
+    container.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+    }, 10);
+
+    setTimeout(() => {
+        toast.classList.add('translate-y-2', 'opacity-0');
+        setTimeout(() => toast.remove(), 300);
+    }, 3500);
+}
+
 // مزامنة حية سحابية
 db.collection("academy_data").doc("main_data").onSnapshot((doc) => {
     if (doc.exists) {
@@ -95,7 +125,7 @@ function applyAcademyBranding() {
 window.handleUpdateAcademySettings = function(e) {
     e.preventDefault();
     if (currentUser && currentUser.role !== 'admin') {
-        alert('تعديل هوية الأكاديمية مخصص للمدير العام فقط!');
+        showToast('تعديل هوية الأكاديمية مخصص للمدير العام فقط!', 'error');
         return;
     }
     const newName = document.getElementById('setting-academy-name').value.trim();
@@ -106,7 +136,7 @@ window.handleUpdateAcademySettings = function(e) {
 
     addLog(`قام بتعديل إعدادات وهوية الأكاديمية (الاسم: ${academyInfo.name})`);
     saveData();
-    alert('تم تحديث هوية الأكاديمية بنجاح!');
+    showToast('تم تحديث هوية الأكاديمية بنجاح!', 'success');
 }
 
 window.switchView = function(viewId) {
@@ -190,7 +220,7 @@ window.handleAddMatch = function(e) {
     saveData();
     renderSchedule();
     closeModal('modal-add-match');
-    alert('تمت إضافة المباراة للجدول بنجاح!');
+    showToast('تمت إضافة المباراة للجدول بنجاح!', 'success');
 }
 
 window.deleteMatch = function(id) {
@@ -199,7 +229,7 @@ window.deleteMatch = function(id) {
         addLog(`قام بحذف مباراة من الجدول`);
         saveData();
         renderSchedule();
-        alert('تم حذف المباراة.');
+        showToast('تم حذف المباراة.', 'success');
     }
 }
 
@@ -269,7 +299,7 @@ window.renderPlans = function() {
 }
 
 window.openAddPlanModal = function() {
-    if (!hasPermission('managePlans')) { alert('ليس لديك صلاحية تعديل الباقات!'); return; }
+    if (!hasPermission('managePlans')) { showToast('ليس لديك صلاحية تعديل الباقات!', 'error'); return; }
     document.getElementById('plan-edit-id').value = '';
     document.getElementById('modal-plan-title').innerText = 'إضافة باقة اشتراك جديدة';
     document.getElementById('plan-name').value = '';
@@ -280,7 +310,7 @@ window.openAddPlanModal = function() {
 }
 
 window.editPlan = function(id) {
-    if (!hasPermission('managePlans')) { alert('ليس لديك صلاحية!'); return; }
+    if (!hasPermission('managePlans')) { showToast('ليس لديك صلاحية!', 'error'); return; }
     const p = plans.find(x => x.id === id);
     if (!p) return;
     document.getElementById('plan-edit-id').value = p.id;
@@ -314,7 +344,7 @@ window.handleSavePlan = function(e) {
     saveData();
     renderPlans();
     closeModal('modal-add-plan');
-    alert('تم حفظ الباقة بنجاح!');
+    showToast('تم حفظ الباقة بنجاح!', 'success');
 }
 
 window.deletePlan = function(id) {
@@ -324,7 +354,7 @@ window.deletePlan = function(id) {
         addLog(`قام بحذف باقة اشتراك`);
         saveData();
         renderPlans();
-        alert('تم الحذف.');
+        showToast('تم الحذف.', 'success');
     }
 }
 
@@ -337,7 +367,7 @@ window.handleLogin = function(e) {
         currentUser = { role: 'admin', name: 'المدير العام' };
         addLog(`سجل الدخول كـ (مدير عام)`);
         updateAuthUI();
-        alert('تم تسجيل الدخول كمدير بنجاح!');
+        showToast('تم تسجيل الدخول كمدير بنجاح!', 'success');
         switchView('admin');
         return;
     }
@@ -347,7 +377,7 @@ window.handleLogin = function(e) {
         currentUser = { role: 'staff', username: foundStaff.username, name: foundStaff.name };
         addLog(`سجل الدخول المشرف: ${foundStaff.name}`);
         updateAuthUI();
-        alert(`أهلاً بك مشرف النظام ${foundStaff.name}!`);
+        showToast(`أهلاً بك مشرف النظام ${foundStaff.name}!`, 'success');
         switchView('admin');
         return;
     }
@@ -355,21 +385,21 @@ window.handleLogin = function(e) {
     const foundPlayer = players.find(x => x.username.toLowerCase() === u.toLowerCase() && x.password === p);
     if (foundPlayer) {
         if (foundPlayer.status !== 'معتمد') {
-            alert('حسابك بانتظار موافقة الإدارة أو غير معتمد.');
+            showToast('حسابك بانتظار موافقة الإدارة أو غير معتمد.', 'error');
             return;
         }
         if (foundPlayer.frozen) {
-            alert('حسابك مجمد حالياً.');
+            showToast('حسابك مجمد حالياً.', 'error');
             return;
         }
         currentUser = { role: 'player', data: foundPlayer, name: foundPlayer.name };
         addLog(`سجل اللاعب دخولاً: ${foundPlayer.name}`);
         updateAuthUI();
         loadPlayerDataIntoProfile();
-        alert(`أهلاً بك كابتن ${foundPlayer.name}!`);
+        showToast(`أهلاً بك كابتن ${foundPlayer.name}!`, 'success');
         switchView('player');
     } else {
-        alert('اسم المستخدم أو كلمة المرور غير صحيحة.');
+        showToast('اسم المستخدم أو كلمة المرور غير صحيحة.', 'error');
     }
 }
 
@@ -384,7 +414,7 @@ window.handleSendOTP = function(e) {
     const password = document.getElementById('reg-password').value;
 
     if (players.some(p => p.username.toLowerCase() === username.toLowerCase())) {
-        alert('اسم المستخدم مسجل مسبقاً.');
+        showToast('اسم المستخدم مسجل مسبقاً.', 'error');
         return;
     }
 
@@ -403,7 +433,7 @@ window.handleSendOTP = function(e) {
     addLog(`سجل حساب جديد بانتظار الموافقة: ${name}`);
     saveData();
     renderAdminTables();
-    alert('تم إرسال طلب انضمامك للإدارة بنجاح! يمكنك تسجيل الدخول بعد موافقة المشرف.');
+    showToast('تم إرسال طلب انضمامك للإدارة بنجاح!', 'success');
     document.getElementById('register-form').reset();
     switchView('login');
 }
@@ -413,7 +443,7 @@ window.handleLogout = function() {
     currentUser = null;
     updateAuthUI();
     renderTeammates();
-    alert('تم تسجيل الخروج.');
+    showToast('تم تسجيل الخروج.', 'success');
     switchView('home');
 }
 
@@ -507,7 +537,7 @@ window.renderAdminTables = function() {
 }
 
 window.promptPlayerPhoto = function(id) {
-    if (!hasPermission('managePlayerPhoto')) { alert('ليس لديك صلاحية إضافة/تعديل صور اللاعبين!'); return; }
+    if (!hasPermission('managePlayerPhoto')) { showToast('ليس لديك صلاحية إضافة/تعديل صور اللاعبين!', 'error'); return; }
     const p = players.find(x => x.id === id);
     if (!p) return;
     const url = prompt(`أدخل رابط الصورة الجديدة لللاعب ${p.name}:`, p.photoUrl || '');
@@ -517,12 +547,12 @@ window.promptPlayerPhoto = function(id) {
         saveData();
         renderAdminTables();
         renderTeammates();
-        alert('تم تحديث صورة اللاعب بنجاح!');
+        showToast('تم تحديث صورة اللاعب بنجاح!', 'success');
     }
 }
 
 window.customChangePoints = function(playerId, mode) {
-    if (!hasPermission('managePoints')) { alert('ليس لديك صلاحية تعديل النقاط!'); return; }
+    if (!hasPermission('managePoints')) { showToast('ليس لديك صلاحية تعديل النقاط!', 'error'); return; }
     const p = players.find(x => x.id === playerId);
     if (!p) return;
 
@@ -532,7 +562,7 @@ window.customChangePoints = function(playerId, mode) {
 
     const amount = parseInt(inputVal);
     if (isNaN(amount) || amount <= 0) {
-        alert('الرجاء إدخال رقم صحيح أكبر من الصفر.');
+        showToast('الرجاء إدخال رقم صحيح أكبر من الصفر.', 'error');
         return;
     }
 
@@ -547,11 +577,11 @@ window.customChangePoints = function(playerId, mode) {
     saveData();
     renderAdminTables();
     renderTeammates();
-    alert('تم تحديث النقاط بنجاح!');
+    showToast('تم تحديث النقاط بنجاح!', 'success');
 }
 
 window.promptRename = function(id) {
-    if (!hasPermission('renamePlayer')) { alert('ليس لديك صلاحية تغيير أسماء اللاعبين!'); return; }
+    if (!hasPermission('renamePlayer')) { showToast('ليس لديك صلاحية تغيير أسماء اللاعبين!', 'error'); return; }
     const p = players.find(x => x.id === id);
     if (!p) return;
     const oldName = p.name;
@@ -562,12 +592,12 @@ window.promptRename = function(id) {
         saveData();
         renderAdminTables();
         renderTeammates();
-        alert('تم تغيير اسم اللاعب بنجاح!');
+        showToast('تم تغيير اسم اللاعب بنجاح!', 'success');
     }
 }
 
 window.promptWarnPlayer = function(id) {
-    if (!hasPermission('warnPlayer')) { alert('ليس لديك صلاحية إعطاء تحذيرات!'); return; }
+    if (!hasPermission('warnPlayer')) { showToast('ليس لديك صلاحية إعطاء تحذيرات!', 'error'); return; }
     const p = players.find(x => x.id === id);
     if (!p) return;
     const reason = prompt(`أدخل سبب التحذير الموجه لللاعب ${p.name}:`);
@@ -577,12 +607,12 @@ window.promptWarnPlayer = function(id) {
         addLog(`أعطى تحذيراً للاعب ${p.name} بسبب: ${reason.trim()}`);
         saveData();
         renderAdminTables();
-        alert('تم إرسال التحذير وتسجيله بنجاح!');
+        showToast('تم إرسال التحذير وتسجيله بنجاح!', 'success');
     }
 }
 
 window.approveMember = function(id) {
-    if (!hasPermission('approvePlayers')) { alert('ليس لديك صلاحية قبول اللاعبين!'); return; }
+    if (!hasPermission('approvePlayers')) { showToast('ليس لديك صلاحية قبول اللاعبين!', 'error'); return; }
     const p = players.find(x => x.id === id);
     if (p) {
         p.status = 'معتمد';
@@ -590,35 +620,35 @@ window.approveMember = function(id) {
         saveData();
         renderAdminTables();
         renderTeammates();
-        alert(`تم قبول اللاعب ${p.name} بنجاح!`);
+        showToast(`تم قبول اللاعب ${p.name} بنجاح!`, 'success');
     }
 }
 
 window.rejectMember = function(id) {
-    if (!hasPermission('approvePlayers')) { alert('ليس لديك صلاحية!'); return; }
+    if (!hasPermission('approvePlayers')) { showToast('ليس لديك صلاحية!', 'error'); return; }
     const p = players.find(x => x.id === id);
     const pName = p ? p.name : 'مجهول';
     players = players.filter(x => x.id !== id);
     addLog(`رفض طلب انضمام اللاعب: ${pName}`);
     saveData();
     renderAdminTables();
-    alert('تم رفض الطلب وحذفه.');
+    showToast('تم رفض الطلب وحذفه.', 'success');
 }
 
 window.toggleFreezePlayer = function(playerId) {
-    if (!hasPermission('freezePlayer')) { alert('ليس لديك صلاحية تجميد الاشتراكات!'); return; }
+    if (!hasPermission('freezePlayer')) { showToast('ليس لديك صلاحية تجميد الاشتراكات!', 'error'); return; }
     const p = players.find(x => x.id === playerId);
     if (p) {
         p.frozen = !p.frozen;
         addLog(`${p.frozen ? 'جمّد اشتراك' : 'أعاد تفعيل اشتراك'} اللاعب: ${p.name}`);
         saveData();
         renderAdminTables();
-        alert(p.frozen ? 'تم تجميد اشتراك اللاعب' : 'تم إعادة تفعيل الحساب');
+        showToast(p.frozen ? 'تم تجميد اشتراك اللاعب' : 'تم إعادة تفعيل الحساب', 'success');
     }
 }
 
 window.dismissPlayer = function(playerId) {
-    if (!hasPermission('dismissPlayer')) { alert('ليس لديك صلاحية فصل اللاعبين!'); return; }
+    if (!hasPermission('dismissPlayer')) { showToast('ليس لديك صلاحية فصل اللاعبين!', 'error'); return; }
     const p = players.find(x => x.id === playerId);
     if (confirm(`هل أنت متأكد من فصل اللاعب ${p ? p.name : ''} نهائياً؟`)) {
         players = players.filter(x => x.id !== playerId);
@@ -626,7 +656,7 @@ window.dismissPlayer = function(playerId) {
         saveData();
         renderAdminTables();
         renderTeammates();
-        alert('تم فصل اللاعب.');
+        showToast('تم فصل اللاعب.', 'success');
     }
 }
 
@@ -676,7 +706,6 @@ function renderTeammates() {
 
     if (teammatesContainer) teammatesContainer.innerHTML = html;
 
-    // إظهار القسم في الرئيسية حصرياً للمدير العام فقط
     if (currentUser && currentUser.role === 'admin') {
         if (homeTeammatesSection) homeTeammatesSection.classList.remove('hidden');
         if (homeContainer) homeContainer.innerHTML = html;
@@ -705,7 +734,7 @@ window.handleSendBroadcast = function(e) {
     renderNotifications();
     document.getElementById('broadcast-title').value = '';
     document.getElementById('broadcast-msg').value = '';
-    alert('تم نشر التعميم بنجاح!');
+    showToast('تم نشر التعميم بنجاح!', 'success');
 }
 
 window.deleteBroadcast = function(notifId) {
@@ -715,7 +744,7 @@ window.deleteBroadcast = function(notifId) {
         addLog(`حذف التعميم: ${notif ? notif.title : ''}`);
         saveData();
         renderNotifications();
-        alert('تم حذف التعميم.');
+        showToast('تم حذف التعميم.', 'success');
     }
 }
 
@@ -774,7 +803,7 @@ function renderActivityLogs() {
 window.handleCreateStaff = function(e) {
     e.preventDefault();
     if (currentUser && currentUser.role !== 'admin') {
-        alert('عذراً، المدير فقط هو من يمكنه إنشاء مشرفين!');
+        showToast('عذراً، المدير فقط هو من يمكنه إنشاء مشرفين!', 'error');
         return;
     }
     const name = document.getElementById('staff-add-name').value.trim();
@@ -782,7 +811,7 @@ window.handleCreateStaff = function(e) {
     const password = document.getElementById('staff-add-password').value.trim();
 
     if (staffList.some(s => s.username.toLowerCase() === username.toLowerCase())) {
-        alert('اسم المستخدم هذا مستخدم بالفعل.');
+        showToast('اسم المستخدم هذا مستخدم بالفعل.', 'error');
         return;
     }
 
@@ -807,7 +836,7 @@ window.handleCreateStaff = function(e) {
     saveData();
     renderStaffPermissionsUI();
     document.getElementById('staff-form').reset();
-    alert('تم إنشاء حساب المشرف وصلاحياته بنجاح!');
+    showToast('تم إنشاء حساب المشرف وصلاحياته بنجاح!', 'success');
 }
 
 window.deleteStaff = function(id) {
@@ -817,7 +846,7 @@ window.deleteStaff = function(id) {
         addLog(`حذف حساب مشرف من النظام`);
         saveData();
         renderStaffPermissionsUI();
-        alert('تم حذف حساب المشرف.');
+        showToast('تم حذف حساب المشرف.', 'success');
     }
 }
 
