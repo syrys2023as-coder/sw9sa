@@ -4,9 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title class="academy-name-display">أكاديمية النخبة - الإدارة والمزامنة السحابية</title>
+    <!-- مكتبة Tailwind CSS للتصميم -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- مكتبة الأيقونات FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- مكتبة الرسوم البيانية Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- مكتبات Firebase الإصدار المتوافق (v10 Compat) -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <style>
@@ -16,6 +20,7 @@
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between">
 
+    <!-- رأس الصفحة (Header) -->
     <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
             <div class="flex items-center gap-3 cursor-pointer" onclick="switchView('home')">
@@ -33,8 +38,10 @@
         </div>
     </header>
 
+    <!-- المحتوى الرئيسي (Main Content) -->
     <main class="flex-grow max-w-7xl mx-auto px-4 py-8 w-full space-y-8">
         
+        <!-- 1. واجهة الرئيسية (Home View) -->
         <section id="view-home" class="space-y-8">
             <div class="bg-gradient-to-r from-emerald-900/40 to-slate-900 border border-emerald-500/30 rounded-3xl p-8 md:p-12 text-center relative overflow-hidden">
                 <h1 class="text-3xl md:text-5xl font-black text-white mb-4 academy-name-display">بوابة أكاديمية النخبة الرياضية</h1>
@@ -75,7 +82,7 @@
             </div>
         </section>
 
-        <!-- صفحة مستقلة لزملائكم في الفريق -->
+        <!-- 2. صفحة مستقلة لزملائكم في الفريق -->
         <section id="view-teammates" class="hidden space-y-6">
             <div class="flex justify-between items-center border-b border-slate-800 pb-4">
                 <div>
@@ -89,6 +96,7 @@
             </div>
         </section>
 
+        <!-- 3. باقات الاشتراك -->
         <section id="view-pricing" class="hidden space-y-8">
             <div class="text-center space-y-2">
                 <h2 class="text-2xl md:text-4xl font-black text-white">باقات التدريب والاشتراك</h2>
@@ -97,6 +105,7 @@
             <div id="public-pricing-plans-container" class="grid grid-cols-1 md:grid-cols-3 gap-6"></div>
         </section>
 
+        <!-- 4. جدول المباريات -->
         <section id="view-schedule" class="hidden space-y-6">
             <div class="flex justify-between items-center">
                 <h2 class="text-xl md:text-2xl font-black text-white">جدول المباريات والتدريبات</h2>
@@ -105,6 +114,7 @@
             <div id="schedule-cards-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
         </section>
 
+        <!-- 5. تسجيل الدخول -->
         <section id="view-login" class="hidden max-w-md mx-auto bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl space-y-6">
             <div class="text-center space-y-1">
                 <h2 class="text-xl font-black text-white">تسجيل الدخول</h2>
@@ -123,6 +133,7 @@
             </form>
         </section>
 
+        <!-- 6. التسجيل الجديد -->
         <section id="view-register" class="hidden max-w-lg mx-auto bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl space-y-6">
             <div class="text-center space-y-1">
                 <h2 class="text-xl font-black text-white">انضم إلى <span class="academy-name-display">الأكاديمية</span></h2>
@@ -172,6 +183,7 @@
             </form>
         </section>
 
+        <!-- 7. لوحة التحكم (Admin View) -->
         <section id="view-admin" class="hidden space-y-6">
             <div class="flex flex-wrap gap-2 border-b border-slate-800 pb-4">
                 <button id="tabbtn-pending" onclick="switchAdminTab('sub-pending')" class="admin-tab-btn px-4 py-2 bg-emerald-500 text-slate-950 font-bold rounded-xl text-xs transition">الطلبات المعلقة</button>
@@ -258,112 +270,4 @@
                     </div>
 
                     <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
-                        <span class="block text-xs font-bold text-emerald-400 mb-2">تحديد الصلاحيات:</span>
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs text-slate-300">
-                            <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="perm-approve" class="rounded accent-emerald-500"> قبول/رفض اللاعبين</label>
-                            <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="perm-matches" class="rounded accent-emerald-500"> تعديل جدول المباريات</label>
-                            <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="perm-plans" class="rounded accent-emerald-500"> تعديل الباقات</label>
-                            <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="perm-points" class="rounded accent-emerald-500"> تخصيص النقاط</label>
-                            <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="perm-dismiss" class="rounded accent-emerald-500"> فصل اللاعبين</label>
-                            <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="perm-freeze" class="rounded accent-emerald-500"> تجميد اشتراك</label>
-                            <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="perm-rename" class="rounded accent-emerald-500"> تغيير اسم لاعب</label>
-                            <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="perm-warn" class="rounded accent-emerald-500"> إعطاء تحذير</label>
-                            <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="perm-photo" class="rounded accent-emerald-500"> صور اللاعبين</label>
-                        </div>
-                    </div>
-                    <button type="submit" class="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold rounded-xl text-xs transition">إنشاء حساب المشرف</button>
-                </form>
-
-                <div class="border-t border-slate-800 pt-4 space-y-3">
-                    <h4 class="font-bold text-white text-xs">قائمة المشرفين وصلاحياتهم:</h4>
-                    <div id="admin-staff-permissions-container" class="space-y-3"></div>
-                </div>
-            </div>
-
-            <div id="sub-broadcast" class="admin-sub-page hidden max-w-xl mx-auto bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
-                <h3 class="font-bold text-white text-sm">إرسال تعميم أو إشعار لجميع اللاعبين</h3>
-                <form onsubmit="handleSendBroadcast(event)" class="space-y-4">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-300 mb-1">عنوان التعميم</label>
-                        <input type="text" id="broadcast-title" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-xs text-white">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-300 mb-1">نص التعميم</label>
-                        <textarea id="broadcast-msg" rows="3" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-xs text-white"></textarea>
-                    </div>
-                    <button type="submit" class="w-full py-2 bg-emerald-500 text-slate-950 font-bold rounded-xl text-xs">نشر التعميم فوراً</button>
-                </form>
-            </div>
-
-            <div id="sub-logs" class="admin-sub-page hidden space-y-4">
-                <h3 class="font-bold text-white text-sm">سجلات النظام والعمليات (Logs)</h3>
-                <p class="text-xs text-slate-400">تتبع كامل لكل ما يحدث في الأكاديمية (من نشر تعميم، فصل، تعديل نقاط، دخول وخروج، وغيرها).</p>
-                <div id="admin-logs-container" class="space-y-2 bg-slate-900 border border-slate-800 p-4 rounded-2xl max-h-96 overflow-y-auto"></div>
-            </div>
-        </section>
-
-        <section id="view-player" class="hidden space-y-6">
-            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 flex flex-col md:flex-row justify-between items-center gap-6">
-                <div class="space-y-1 text-center md:text-right">
-                    <h2 id="profile-name" class="text-xl font-black text-white">-</h2>
-                    <p class="text-xs text-emerald-400 font-semibold" id="profile-position">-</p>
-                    <span id="profile-permission" class="inline-block mt-2 px-3 py-0.5 bg-slate-800 text-slate-300 rounded-full text-[10px]">لاعب عادي</span>
-                </div>
-                <div class="flex gap-6 text-center">
-                    <div class="bg-slate-950 px-5 py-3 rounded-2xl border border-slate-800">
-                        <span class="block text-[10px] text-slate-400">النقاط التراكمية</span>
-                        <span id="profile-points" class="text-xl font-black text-amber-400">0</span>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 h-72">
-                <canvas id="playerPerformanceChart"></canvas>
-            </div>
-        </section>
-
-    </main>
-
-    <div id="modal-add-match" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full space-y-4">
-            <h3 class="font-bold text-white text-sm">إضافة مباراة أو تدريب جديد</h3>
-            <form onsubmit="handleAddMatch(event)" class="space-y-3">
-                <input type="text" id="match-opponent" placeholder="اسم الخصم أو نوع التدريب" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-xs text-white">
-                <input type="datetime-local" id="match-datetime" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-xs text-white">
-                <input type="text" id="match-location" placeholder="الملعب أو الموقع" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-xs text-white">
-                <div class="flex gap-2 pt-2">
-                    <button type="submit" class="flex-1 py-2 bg-emerald-500 text-slate-950 font-bold rounded-xl text-xs">حفظ وإضافة</button>
-                    <button type="button" onclick="closeModal('modal-add-match')" class="px-4 py-2 bg-slate-800 text-slate-300 text-xs rounded-xl">إلغاء</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div id="modal-add-plan" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full space-y-4">
-            <h3 id="modal-plan-title" class="font-bold text-white text-sm">إضافة باقة اشتراك جديدة</h3>
-            <form onsubmit="handleSavePlan(event)" class="space-y-3">
-                <input type="hidden" id="plan-edit-id">
-                <input type="text" id="plan-name" placeholder="اسم الباقة" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-xs text-white">
-                <input type="number" id="plan-price" placeholder="السعر بالريال" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-xs text-white">
-                <input type="text" id="plan-duration" value="شهرياً" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-xs text-white">
-                <textarea id="plan-desc" placeholder="وصف قصير للباقة" rows="2" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-xs text-white"></textarea>
-                <input type="text" id="plan-features" placeholder="المميزات مفصولة بفاصلة (,)" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-xs text-white">
-                <div class="flex gap-2 pt-2">
-                    <button type="submit" class="flex-1 py-2 bg-emerald-500 text-slate-950 font-bold rounded-xl text-xs">حفظ الباقة</button>
-                    <button type="button" onclick="closeModal('modal-add-plan')" class="px-4 py-2 bg-slate-800 text-slate-300 text-xs rounded-xl">إلغاء</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <footer class="bg-slate-900 border-t border-slate-800 py-6 text-center text-xs text-slate-500">
-        جميع الحقوق محفوظة © <span class="academy-name-display">أكاديمية النخبة الرياضية</span> - مدعوم بالسحابة الفورية
-    </footer>
-
-    <script src="app.js"></script>
-    <script>
-        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
-    </script>
-</body>
-</html>
+                        <span class="block text-xs font-bold text-emerald-400 mb-2
