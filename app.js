@@ -1,4 +1,3 @@
-// إعدادات الاتصال بقاعدة بيانات فايربيز للأكاديمية
 const firebaseConfig = {
   apiKey: "AIzaSyAMKm-xOELnBDxFr7qh1aUJ9KU60pNK_dg",
   authDomain: "acdmih-fc15d.firebaseapp.com",
@@ -12,7 +11,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-let academyInfo = { name: "أكاديمية النخبة", logo: "" };
+let academyInfo = { name: "أكاديمية ق", logo: "https://cdn.discordapp.com/attachments/1489642112470221052/1567548836832878622/IMG_2367.jpg?ex=6aec951e&is=6aeb439e&hm=41dbf1d87b1c147984bcd0603d1d208469f438cab250b9e7a6530356e159fff1&" };
 let plans = [
     { id: 1, name: 'الاشتراك الأساسي', price: 250, duration: 'شهرياً', desc: 'مناسب للمبتدئين وتطوير الأساسيات', features: ['2 حصص تدريب أسبوعياً', 'متابعة أداء أساسية', 'زي رياضي مجاني'] },
     { id: 2, name: 'الاشتراك الاحترافي', price: 450, duration: 'شهرياً', desc: 'تطوير شامل ومكثف', features: ['4 حصص تدريب أسبوعياً', 'تحليل بيانات وتصوير بالفيديو', 'المشاركة في الدوري الداخلي'] },
@@ -29,7 +28,6 @@ let payments = [];
 let currentUser = null;
 let chartInstance = null;
 
-// نظام التنبيهات العائم (أسفل اليسار)
 function showToast(message, type = 'error') {
     let container = document.getElementById('toast-container');
     if (!container) {
@@ -42,10 +40,10 @@ function showToast(message, type = 'error') {
     const toast = document.createElement('div');
     const isSuccess = type === 'success';
     toast.className = `pointer-events-auto px-4 py-3 rounded-2xl text-xs font-bold text-white shadow-2xl transition-all duration-300 transform translate-y-2 opacity-0 flex items-center gap-2 ${
-        isSuccess ? 'bg-emerald-600 border border-emerald-400/30' : 'bg-rose-600 border border-rose-400/30'
+        isSuccess ? 'bg-blue-600 border border-blue-400/30' : 'bg-rose-600 border border-rose-400/30'
     }`;
     
-    toast.innerHTML = `<i class="fa-solid ${isSuccess ? 'fa-circle-check text-emerald-200' : 'fa-circle-exclamation text-rose-200'} text-sm"></i> <span>${message}</span>`;
+    toast.innerHTML = `<i class="fa-solid ${isSuccess ? 'fa-circle-check text-blue-200' : 'fa-circle-exclamation text-rose-200'} text-sm"></i> <span>${message}</span>`;
     
     container.appendChild(toast);
     
@@ -59,11 +57,10 @@ function showToast(message, type = 'error') {
     }, 3500);
 }
 
-// مزامنة حية سحابية
 db.collection("academy_data").doc("main_data").onSnapshot((doc) => {
     if (doc.exists) {
         const data = doc.data();
-        academyInfo = data.academyInfo || { name: "أكاديمية النخبة", logo: "" };
+        academyInfo = { name: "أكاديمية ق", logo: "https://cdn.discordapp.com/attachments/1489642112470221052/1567548836832878622/IMG_2367.jpg?ex=6aec951e&is=6aeb439e&hm=41dbf1d87b1c147984bcd0603d1d208469f438cab250b9e7a6530356e159fff1&" };
         plans = data.plans || plans;
         players = data.players || [];
         matches = data.matches || [];
@@ -110,33 +107,12 @@ function addLog(actionText) {
 
 function applyAcademyBranding() {
     const nameEls = document.querySelectorAll('.academy-name-display');
-    nameEls.forEach(el => el.innerText = academyInfo.name);
+    nameEls.forEach(el => el.innerText = "أكاديمية ق");
 
     const logoEls = document.querySelectorAll('.academy-logo-display');
     logoEls.forEach(el => {
-        if (academyInfo.logo) {
-            el.innerHTML = `<img src="${academyInfo.logo}" class="w-full h-full object-cover rounded-xl">`;
-        } else {
-            el.innerHTML = `أ`;
-        }
+        el.innerHTML = `<img src="https://i.ibb.co/6PZ8155/logo.jpg" alt="أكاديمية ق" class="w-full h-full object-cover" onerror="this.onerror=null; this.parentNode.innerHTML='ق';">`;
     });
-}
-
-window.handleUpdateAcademySettings = function(e) {
-    e.preventDefault();
-    if (currentUser && currentUser.role !== 'admin') {
-        showToast('تعديل هوية الأكاديمية مخصص للمدير العام فقط!', 'error');
-        return;
-    }
-    const newName = document.getElementById('setting-academy-name').value.trim();
-    const newLogo = document.getElementById('setting-academy-logo').value.trim();
-
-    if (newName) academyInfo.name = newName;
-    if (newLogo) academyInfo.logo = newLogo;
-
-    addLog(`قام بتعديل إعدادات وهوية الأكاديمية (الاسم: ${academyInfo.name})`);
-    saveData();
-    showToast('تم تحديث هوية الأكاديمية بنجاح!', 'success');
 }
 
 window.switchView = function(viewId) {
@@ -152,14 +128,14 @@ window.switchView = function(viewId) {
 window.switchAdminTab = function(tabId) {
     document.querySelectorAll('.admin-sub-page').forEach(el => el.classList.add('hidden'));
     document.querySelectorAll('.admin-tab-btn').forEach(btn => {
-        btn.classList.remove('bg-emerald-500', 'text-slate-950');
+        btn.classList.remove('bg-blue-600', 'text-white');
         btn.classList.add('bg-slate-800', 'text-slate-300');
     });
     document.getElementById(tabId).classList.remove('hidden');
     const activeBtn = document.getElementById(`tabbtn-${tabId.replace('sub-', '')}`);
     if (activeBtn) {
         activeBtn.classList.remove('bg-slate-800', 'text-slate-300');
-        activeBtn.classList.add('bg-emerald-500', 'text-slate-950');
+        activeBtn.classList.add('bg-blue-600', 'text-white');
     }
 }
 
@@ -182,7 +158,7 @@ window.renderSchedule = function() {
 
     if (canManageMatches) {
         if (adminBtnContainer) {
-            adminBtnContainer.innerHTML = `<button onclick="document.getElementById('modal-add-match').classList.remove('hidden')" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold rounded-xl text-xs transition">+ إضافة مباراة أو تدريب</button>`;
+            adminBtnContainer.innerHTML = `<button onclick="document.getElementById('modal-add-match').classList.remove('hidden')" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs transition">+ إضافة مباراة أو تدريب</button>`;
         }
     } else {
         if (adminBtnContainer) adminBtnContainer.innerHTML = '';
@@ -196,8 +172,8 @@ window.renderSchedule = function() {
     list.innerHTML = matches.map(m => `
         <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex justify-between items-center">
             <div class="space-y-1">
-                <span class="text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-bold">${m.location}</span>
-                <h4 class="font-bold text-white text-base"><span class="academy-name-display">الأكاديمية</span> vs ${m.opponent}</h4>
+                <span class="text-xs px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 font-bold">${m.location}</span>
+                <h4 class="font-bold text-white text-base"><span class="academy-name-display">أكاديمية ق</span> vs ${m.opponent}</h4>
                 <p class="text-xs text-slate-400"><i class="fa-regular fa-clock ml-1"></i> ${m.date}</p>
             </div>
             <div class="flex items-center gap-3">
@@ -240,6 +216,8 @@ function bootApp() {
     renderAdminTables();
     renderSchedule();
     renderNotifications();
+    renderStaffPermissionsUI();
+    renderActivityLogs();
     renderTeammates();
     initChart();
     window.switchView('home');
@@ -258,17 +236,17 @@ window.renderPlans = function() {
 
     if (publicContainer) {
         publicContainer.innerHTML = plans.map(p => `
-            <div class="bg-slate-900 border ${p.id === 2 ? 'border-2 border-emerald-500 shadow-xl' : 'border-slate-800'} rounded-3xl p-6 flex flex-col justify-between relative">
-                ${p.id === 2 ? '<span class="absolute -top-3 left-1/2 -translate-x-1/2 bg-emerald-500 text-slate-950 font-black text-xs px-3 py-1 rounded-full">الأكثر طلباً</span>' : ''}
+            <div class="bg-slate-900 border ${p.id === 2 ? 'border-2 border-blue-500 shadow-xl' : 'border-slate-800'} rounded-3xl p-6 flex flex-col justify-between relative">
+                ${p.id === 2 ? '<span class="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white font-black text-xs px-3 py-1 rounded-full">الأكثر طلباً</span>' : ''}
                 <div>
                     <h3 class="text-lg font-bold text-white">${p.name}</h3>
                     <p class="text-xs text-slate-400 mt-1">${p.desc}</p>
-                    <div class="my-4 text-3xl font-black text-emerald-400">${p.price} <span class="text-xs text-slate-400 font-normal">ر.س / ${p.duration}</span></div>
+                    <div class="my-4 text-3xl font-black text-blue-400">${p.price} <span class="text-xs text-slate-400 font-normal">ر.س / ${p.duration}</span></div>
                     <ul class="text-xs text-slate-300 space-y-2 border-t border-slate-800 pt-4">
-                        ${p.features.map(f => `<li><i class="fa-solid fa-check text-emerald-400 ml-2"></i> ${f}</li>`).join('')}
+                        ${p.features.map(f => `<li><i class="fa-solid fa-check text-blue-400 ml-2"></i> ${f}</li>`).join('')}
                     </ul>
                 </div>
-                <button onclick="switchView('register')" class="mt-6 w-full py-2.5 ${p.id === 2 ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-white'} font-bold rounded-xl transition text-xs">اشتراك الآن</button>
+                <button onclick="switchView('register')" class="mt-6 w-full py-2.5 ${p.id === 2 ? 'bg-blue-600 text-white' : 'bg-slate-800 text-white'} font-bold rounded-xl transition text-xs">اشتراك الآن</button>
             </div>
         `).join('');
     }
@@ -284,7 +262,7 @@ window.renderPlans = function() {
                 <div>
                     <div class="flex justify-between items-center mb-2">
                         <h4 class="font-bold text-white text-sm">${p.name}</h4>
-                        <span class="text-emerald-400 font-black text-base">${p.price} ر.س</span>
+                        <span class="text-blue-400 font-black text-base">${p.price} ر.س</span>
                     </div>
                     <p class="text-xs text-slate-300 mt-2">${p.desc}</p>
                 </div>
@@ -425,6 +403,7 @@ window.handleSendOTP = function(e) {
         frozen: false,
         points: 0,
         photoUrl: '',
+        displayLocation: 'both',
         permission: 'لاعب عادي',
         warnings: []
     };
@@ -458,11 +437,11 @@ function updateAuthUI() {
             authSec.innerHTML = `<span class="text-xs font-bold text-amber-400 bg-amber-400/10 px-3 py-1.5 rounded-xl border border-amber-400/20"><i class="fa-solid fa-user-shield ml-1"></i> ${roleName}</span><button onclick="handleLogout()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 font-bold rounded-xl transition">خروج</button>`;
         } else {
             if (adminNavBtn) adminNavBtn.classList.add('hidden');
-            authSec.innerHTML = `<button onclick="switchView('player')" class="text-xs font-bold text-emerald-400 bg-emerald-400/10 px-3 py-1.5 rounded-xl border border-emerald-400/20"><i class="fa-solid fa-user ml-1"></i> ${currentUser.data.name}</button><button onclick="handleLogout()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 font-bold rounded-xl transition">خروج</button>`;
+            authSec.innerHTML = `<button onclick="switchView('player')" class="text-xs font-bold text-blue-400 bg-blue-400/10 px-3 py-1.5 rounded-xl border border-blue-400/20"><i class="fa-solid fa-user ml-1"></i> ${currentUser.data.name}</button><button onclick="handleLogout()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 font-bold rounded-xl transition">خروج</button>`;
         }
     } else {
         if (adminNavBtn) adminNavBtn.classList.add('hidden');
-        authSec.innerHTML = `<button onclick="switchView('login')" class="text-xs font-bold text-slate-300 hover:text-white px-3 py-1.5 transition">دخول</button><button onclick="switchView('register')" class="text-xs font-bold bg-emerald-500 hover:bg-emerald-600 text-slate-950 px-4 py-2 rounded-xl transition shadow-md">تسجيل جديد</button>`;
+        authSec.innerHTML = `<button onclick="switchView('login')" class="text-xs font-bold text-slate-300 hover:text-white px-3 py-1.5 transition">دخول</button><button onclick="switchView('register')" class="text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl transition shadow-md">تسجيل جديد</button>`;
     }
     renderTeammates();
 }
@@ -479,10 +458,10 @@ window.renderAdminTables = function() {
                 <td class="p-3 text-slate-400">${p.username}</td>
                 <td class="p-3 font-mono">${p.phone}</td>
                 <td class="p-3">${p.position} (${p.age} سنة)</td>
-                <td class="p-3"><span class="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded font-bold">${p.plan}</span></td>
+                <td class="p-3"><span class="px-2 py-0.5 bg-blue-500/10 text-blue-400 rounded font-bold">${p.plan}</span></td>
                 <td class="p-3 flex gap-2">
                     ${canApprove ? `
-                        <button onclick="approveMember(${p.id})" class="px-3 py-1 bg-emerald-500 text-slate-950 font-bold rounded-lg text-xs">قبول</button>
+                        <button onclick="approveMember(${p.id})" class="px-3 py-1 bg-blue-600 text-white font-bold rounded-lg text-xs">قبول</button>
                         <button onclick="rejectMember(${p.id})" class="px-3 py-1 bg-rose-600 text-white rounded-lg text-xs font-bold">رفض</button>
                     ` : '<span class="text-xs text-slate-500">غير مسموح</span>'}
                 </td>
@@ -509,22 +488,27 @@ window.renderAdminTables = function() {
                     </div>
                     <div>
                         ${p.name} 
-                        ${canRename ? `<button onclick="promptRename(${p.id})" class="text-emerald-400 hover:text-emerald-300 ml-2 text-[10px] bg-emerald-500/10 px-1.5 py-0.5 rounded">تعديل الاسم</button>` : ''}
-                        ${canPhoto ? `<button onclick="promptPlayerPhoto(${p.id})" class="text-blue-400 hover:text-blue-300 ml-1 text-[10px] bg-blue-500/10 px-1.5 py-0.5 rounded">صورة</button>` : ''}
+                        ${canRename ? `<button onclick="promptRename(${p.id})" class="text-blue-400 hover:text-blue-300 ml-2 text-[10px] bg-blue-500/10 px-1.5 py-0.5 rounded">تعديل الاسم</button>` : ''}
+                        ${canPhoto ? `<button onclick="promptPlayerPhoto(${p.id})" class="text-sky-400 hover:text-sky-300 ml-1 text-[10px] bg-sky-500/10 px-1.5 py-0.5 rounded">صورة</button>` : ''}
                         <span class="block text-[10px] text-slate-400 font-mono">@${p.username} ${p.warnings && p.warnings.length > 0 ? `| <span class="text-rose-400 font-bold">تحذيرات: ${p.warnings.length}</span>` : ''}</span>
                     </div>
                 </td>
-                <td class="p-3">${p.position} (${p.age} سنة)</td>
-                <td class="p-3 font-bold text-amber-400">${p.points} نقطة</td>
                 <td class="p-3">
-                    ${canPoints ? `
                     <div class="flex items-center gap-1">
-                        <button onclick="customChangePoints(${p.id}, 'add')" class="px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded text-xs font-bold">+ تخصيص</button>
-                        <button onclick="customChangePoints(${p.id}, 'sub')" class="px-2 py-1 bg-rose-500/20 text-rose-400 rounded text-xs font-bold">- خصم</button>
-                    </div>` : '<span class="text-xs text-slate-500">-</span>'}
+                        <span class="text-xs text-slate-200">${p.position}</span>
+                        ${canRename ? `<button onclick="promptChangePosition(${p.id})" class="text-amber-400 hover:text-amber-300 text-[10px] bg-amber-500/10 px-1.5 py-0.5 rounded"><i class="fa-solid fa-pen"></i></button>` : ''}
+                    </div>
                 </td>
                 <td class="p-3">
-                    <span class="px-2 py-1 rounded text-xs ${p.frozen ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'}">${p.frozen ? 'مجمد' : 'نشط'}</span>
+                    <select onchange="changePlayerDisplayLocation(${p.id}, this.value)" class="bg-slate-950 border border-slate-800 rounded px-2 py-1 text-[11px] text-blue-400 font-bold">
+                        <option value="both" ${(!p.displayLocation || p.displayLocation === 'both') ? 'selected' : ''}>كلا المكانين</option>
+                        <option value="home" ${p.displayLocation === 'home' ? 'selected' : ''}>الرئيسية فقط</option>
+                        <option value="teammates" ${p.displayLocation === 'teammates' ? 'selected' : ''}>قائمة اللاعبين فقط</option>
+                    </select>
+                </td>
+                <td class="p-3 font-bold text-amber-400">${p.points} نقطة</td>
+                <td class="p-3">
+                    <span class="px-2 py-1 rounded text-xs ${p.frozen ? 'bg-amber-500/20 text-amber-400' : 'bg-blue-500/20 text-blue-400'}">${p.frozen ? 'مجمد' : 'نشط'}</span>
                 </td>
                 <td class="p-3 space-x-1 space-x-reverse flex flex-wrap gap-1">
                     ${canFreeze ? `<button onclick="toggleFreezePlayer(${p.id})" class="px-2 py-1 bg-slate-800 text-xs rounded">${p.frozen ? 'إلغاء' : 'تجميد'}</button>` : ''}
@@ -533,6 +517,63 @@ window.renderAdminTables = function() {
                 </td>
             </tr>
         `).join('');
+    }
+}
+
+window.promptChangePosition = function(id) {
+    if (!hasPermission('renamePlayer')) { showToast('ليس لديك صلاحية تغيير مسمى اللاعب!', 'error'); return; }
+    const p = players.find(x => x.id === id);
+    if (!p) return;
+    const newPos = prompt(`أدخل المسمى الوظيفي أو المركز الجديد لللاعب ${p.name}:`, p.position || 'مهاجم');
+    if (newPos && newPos.trim() !== '') {
+        const oldPos = p.position;
+        p.position = newPos.trim();
+        addLog(`غيّر مسمى اللاعب (${p.name}) من (${oldPos}) إلى (${p.position})`);
+        saveData();
+        renderAdminTables();
+        renderTeammates();
+        showToast('تم تحديث المسمى الوظيفي بنجاح!', 'success');
+    }
+}
+
+window.promptChangeStaffTitle = function(id) {
+    if (currentUser && currentUser.role !== 'admin') { showToast('خاص بالمدير العام فقط!', 'error'); return; }
+    const s = staffList.find(x => x.id === id);
+    if (!s) return;
+    const newTitle = prompt(`أدخل المسمى الوظيفي الجديد للمشرف ${s.name}:`, s.title || 'مشرف نظام');
+    if (newTitle && newTitle.trim() !== '') {
+        const oldTitle = s.title;
+        s.title = newTitle.trim();
+        addLog(`غيّر مسمى المشرف (${s.name}) من (${oldTitle || 'مشرف نظام'}) إلى (${s.title})`);
+        saveData();
+        renderStaffPermissionsUI();
+        renderTeammates();
+        showToast('تم تحديث المسمى الوظيفي للمشرف بنجاح!', 'success');
+    }
+}
+
+window.changePlayerDisplayLocation = function(id, locationVal) {
+    if (currentUser && currentUser.role !== 'admin') { showToast('خاص بالمدير العام فقط!', 'error'); return; }
+    const p = players.find(x => x.id === id);
+    if (p) {
+        p.displayLocation = locationVal;
+        addLog(`حدد مكان ظهور اللاعب (${p.name}) في: ${locationVal}`);
+        saveData();
+        renderTeammates();
+        showToast('تم تحديث إعدادات عرض اللاعب بنجاح!', 'success');
+    }
+}
+
+window.changeStaffDisplayLocation = function(id, locationVal) {
+    if (currentUser && currentUser.role !== 'admin') { showToast('خاص بالمدير العام فقط!', 'error'); return; }
+    const s = staffList.find(x => x.id === id);
+    if (s) {
+        s.displayLocation = locationVal;
+        addLog(`حدد مكان ظهور المشرف (${s.name}) في: ${locationVal}`);
+        saveData();
+        renderStaffPermissionsUI();
+        renderTeammates();
+        showToast('تم تحديث مكان ظهور المشرف بنجاح!', 'success');
     }
 }
 
@@ -603,8 +644,13 @@ window.promptWarnPlayer = function(id) {
     const reason = prompt(`أدخل سبب التحذير الموجه لللاعب ${p.name}:`);
     if (reason && reason.trim() !== '') {
         if (!p.warnings) p.warnings = [];
-        p.warnings.push({ date: new Date().toLocaleDateString('ar-SA'), reason: reason.trim() });
-        addLog(`أعطى تحذيراً للاعب ${p.name} بسبب: ${reason.trim()}`);
+        const issuerName = currentUser ? (currentUser.name || currentUser.username || 'الإدارة') : 'الإدارة العامة';
+        p.warnings.push({ 
+            date: new Date().toLocaleDateString('ar-SA'), 
+            reason: reason.trim(),
+            issuer: issuerName 
+        });
+        addLog(`أعطى تحذيراً للاعب ${p.name} (بواسطة ${issuerName}) بسبب: ${reason.trim()}`);
         saveData();
         renderAdminTables();
         showToast('تم إرسال التحذير وتسجيله بنجاح!', 'success');
@@ -662,56 +708,63 @@ window.dismissPlayer = function(playerId) {
 
 function renderTeammates() {
     const teammatesContainer = document.getElementById('teammates-list-container');
-    const homeTeammatesSection = document.getElementById('home-teammates-section');
     const homeContainer = document.getElementById('home-teammates-container');
 
     const approvedList = players.filter(p => p.status === 'معتمد');
 
-    let html = `<div class="grid grid-cols-1 md:grid-cols-3 gap-4">`;
-    
-    html += `<div class="bg-slate-950 border border-slate-800 p-4 rounded-2xl flex items-center gap-3">
-        <div class="academy-logo-display w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 font-black overflow-hidden">أ</div>
-        <div>
-            <span class="text-[10px] bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded font-bold">الإدارة العليا</span>
-            <h4 class="font-bold text-white text-sm academy-name-display">المدير العام</h4>
-        </div>
-    </div>`;
+    const homePlayers = approvedList.filter(p => !p.displayLocation || p.displayLocation === 'both' || p.displayLocation === 'home');
+    const listPlayers = approvedList.filter(p => !p.displayLocation || p.displayLocation === 'both' || p.displayLocation === 'teammates');
 
-    staffList.forEach(s => {
+    const homeStaff = staffList.filter(s => !s.displayLocation || s.displayLocation === 'both' || s.displayLocation === 'home');
+    const listStaff = staffList.filter(s => !s.displayLocation || s.displayLocation === 'both' || s.displayLocation === 'teammates');
+
+    function generateCards(playerArray, staffArray) {
+        let html = `<div class="grid grid-cols-1 md:grid-cols-3 gap-4">`;
+        
         html += `<div class="bg-slate-950 border border-slate-800 p-4 rounded-2xl flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 font-black"><i class="fa-solid fa-user-tie"></i></div>
+            <div class="academy-logo-display w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 font-black overflow-hidden shadow">
+                <img src="https://i.ibb.co/6PZ8155/logo.jpg" alt="أكاديمية ق" class="w-full h-full object-cover">
+            </div>
             <div>
-                <span class="text-[10px] bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded font-bold">مشرف النظام</span>
-                <h4 class="font-bold text-white text-sm">${s.name}</h4>
+                <span class="text-[10px] bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded font-bold">الإدارة العليا</span>
+                <h4 class="font-bold text-white text-sm academy-name-display">المدير العام</h4>
+                <span class="text-[10px] text-blue-400 block font-semibold">قيادة & قدوة</span>
             </div>
         </div>`;
-    });
 
-    if (approvedList.length > 0) {
-        approvedList.forEach(p => {
+        staffArray.forEach(s => {
             html += `<div class="bg-slate-950 border border-slate-800 p-4 rounded-2xl flex items-center gap-3">
-                <div class="w-10 h-10 rounded-full bg-slate-800 overflow-hidden flex items-center justify-center border border-slate-700">
-                    ${p.photoUrl ? `<img src="${p.photoUrl}" class="w-full h-full object-cover">` : `<i class="fa-solid fa-user text-xs text-slate-400"></i>`}
+                <div class="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 font-black">
+                    <img src="https://i.ibb.co/6PZ8155/logo.jpg" alt="أكاديمية ق" class="w-full h-full object-cover">
                 </div>
                 <div>
-                    <span class="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded font-bold">لاعب معتمد</span>
-                    <h4 class="font-bold text-white text-sm">${p.name}</h4>
-                    <p class="text-[11px] text-slate-400">${p.position} | نقاط: ${p.points}</p>
+                    <span class="text-[10px] bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded font-bold">${s.title || 'مشرف نظام'}</span>
+                    <h4 class="font-bold text-white text-sm">${s.name}</h4>
                 </div>
             </div>`;
         });
+
+        if (playerArray.length > 0) {
+            playerArray.forEach(p => {
+                html += `<div class="bg-slate-950 border border-slate-800 p-4 rounded-2xl flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-slate-800 overflow-hidden flex items-center justify-center border border-slate-700">
+                        ${p.photoUrl ? `<img src="${p.photoUrl}" class="w-full h-full object-cover">` : `<i class="fa-solid fa-user text-xs text-slate-400"></i>`}
+                    </div>
+                    <div>
+                        <span class="text-[10px] bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded font-bold">لاعب معتمد</span>
+                        <h4 class="font-bold text-white text-sm">${p.name}</h4>
+                        <p class="text-[11px] text-slate-400">${p.position} | نقاط: ${p.points}</p>
+                    </div>
+                </div>`;
+            });
+        }
+
+        html += `</div>`;
+        return html;
     }
 
-    html += `</div>`;
-
-    if (teammatesContainer) teammatesContainer.innerHTML = html;
-
-    if (currentUser && currentUser.role === 'admin') {
-        if (homeTeammatesSection) homeTeammatesSection.classList.remove('hidden');
-        if (homeContainer) homeContainer.innerHTML = html;
-    } else {
-        if (homeTeammatesSection) homeTeammatesSection.classList.add('hidden');
-    }
+    if (teammatesContainer) teammatesContainer.innerHTML = generateCards(listPlayers, listStaff);
+    if (homeContainer) homeContainer.innerHTML = generateCards(homePlayers, homeStaff);
 }
 
 window.handleSendBroadcast = function(e) {
@@ -764,9 +817,9 @@ window.renderNotifications = function() {
             <div class="flex justify-between items-start">
                 <div>
                     <h4 class="font-bold text-white text-sm flex items-center gap-2">
-                        <i class="fa-solid fa-bullhorn text-emerald-400"></i> ${n.title || 'إشعار'}
+                        <i class="fa-solid fa-bullhorn text-blue-400"></i> ${n.title || 'إشعار'}
                     </h4>
-                    <span class="text-[10px] text-slate-400">نُشر بواسطة: <strong class="text-emerald-400">${n.publisher || 'الإدارة'}</strong> | ${n.date || ''}</span>
+                    <span class="text-[10px] text-slate-400">نُشر بواسطة: <strong class="text-blue-400">${n.publisher || 'الإدارة'}</strong> | ${n.date || ''}</span>
                 </div>
                 ${canManageBroadcast ? `<button onclick="deleteBroadcast(${n.id})" class="text-rose-400 hover:text-rose-300 text-xs px-2 py-1 bg-rose-600/10 rounded-lg">حذف</button>` : ''}
             </div>
@@ -792,7 +845,7 @@ function renderActivityLogs() {
     container.innerHTML = activityLogs.map(l => `
         <div class="p-3 bg-slate-950 border border-slate-800/60 rounded-xl text-xs flex justify-between items-center">
             <div class="space-y-1">
-                <span class="font-bold text-emerald-400">${l.actor}</span>
+                <span class="font-bold text-blue-400">${l.actor}</span>
                 <span class="text-slate-200 block">${l.text}</span>
             </div>
             <span class="text-[10px] font-mono text-slate-400">${l.time}</span>
@@ -809,6 +862,8 @@ window.handleCreateStaff = function(e) {
     const name = document.getElementById('staff-add-name').value.trim();
     const username = document.getElementById('staff-add-username').value.trim();
     const password = document.getElementById('staff-add-password').value.trim();
+    const title = document.getElementById('staff-add-title').value.trim();
+    const displayLocation = document.getElementById('staff-add-location').value;
 
     if (staffList.some(s => s.username.toLowerCase() === username.toLowerCase())) {
         showToast('اسم المستخدم هذا مستخدم بالفعل.', 'error');
@@ -817,7 +872,8 @@ window.handleCreateStaff = function(e) {
 
     const newStaff = {
         id: Date.now(),
-        name, username, password,
+        name, username, password, title,
+        displayLocation,
         permissions: {
             approvePlayers: document.getElementById('perm-approve').checked,
             manageMatches: document.getElementById('perm-matches').checked,
@@ -832,9 +888,10 @@ window.handleCreateStaff = function(e) {
     };
 
     staffList.push(newStaff);
-    addLog(`أنشأ حساب مشرف جديد: ${name}`);
+    addLog(`أنشأ حساب مشرف جديد: ${name} بمسمى (${title})`);
     saveData();
     renderStaffPermissionsUI();
+    renderTeammates();
     document.getElementById('staff-form').reset();
     showToast('تم إنشاء حساب المشرف وصلاحياته بنجاح!', 'success');
 }
@@ -846,6 +903,7 @@ window.deleteStaff = function(id) {
         addLog(`حذف حساب مشرف من النظام`);
         saveData();
         renderStaffPermissionsUI();
+        renderTeammates();
         showToast('تم حذف حساب المشرف.', 'success');
     }
 }
@@ -866,20 +924,29 @@ function renderStaffPermissionsUI() {
 
     container.innerHTML = staffList.map(s => `
         <div class="bg-slate-950 border border-slate-800 p-4 rounded-2xl space-y-3">
-            <div class="flex justify-between items-center border-b border-slate-800 pb-2">
-                <h4 class="font-bold text-white text-sm">${s.name} <span class="text-xs text-slate-400 font-mono">(@${s.username})</span></h4>
+            <div class="flex flex-wrap justify-between items-center border-b border-slate-800 pb-2 gap-2">
+                <div class="flex items-center gap-3 flex-wrap">
+                    <h4 class="font-bold text-white text-sm">${s.name} <span class="text-xs text-slate-400 font-mono">(@${s.username})</span></h4>
+                    <span class="text-xs bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded font-bold">${s.title || 'مشرف نظام'}</span>
+                    <button onclick="promptChangeStaffTitle(${s.id})" class="text-amber-400 hover:text-amber-300 text-[10px] bg-amber-500/10 px-2 py-0.5 rounded"><i class="fa-solid fa-pen ml-1"></i>تعديل المسمى</button>
+                    <select onchange="changeStaffDisplayLocation(${s.id}, this.value)" class="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-[11px] text-blue-400 font-bold">
+                        <option value="both" ${(!s.displayLocation || s.displayLocation === 'both') ? 'selected' : ''}>كلا المكانين</option>
+                        <option value="home" ${s.displayLocation === 'home' ? 'selected' : ''}>الرئيسية فقط</option>
+                        <option value="teammates" ${s.displayLocation === 'teammates' ? 'selected' : ''}>قائمة اللاعبين فقط</option>
+                    </select>
+                </div>
                 <button onclick="deleteStaff(${s.id})" class="px-2.5 py-1 bg-rose-600/20 text-rose-400 text-xs rounded-lg font-bold">حذف</button>
             </div>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-slate-300">
-                <span class="${s.permissions.approvePlayers ? 'text-emerald-400 font-bold' : 'text-slate-500'}">✓ قبول/رفض</span>
-                <span class="${s.permissions.manageMatches ? 'text-emerald-400 font-bold' : 'text-slate-500'}">✓ المباريات</span>
-                <span class="${s.permissions.managePlans ? 'text-emerald-400 font-bold' : 'text-slate-500'}">✓ الباقات</span>
-                <span class="${s.permissions.managePoints ? 'text-emerald-400 font-bold' : 'text-slate-500'}">✓ النقاط</span>
-                <span class="${s.permissions.dismissPlayer ? 'text-emerald-400 font-bold' : 'text-slate-500'}">✓ الفصل</span>
-                <span class="${s.permissions.freezePlayer ? 'text-emerald-400 font-bold' : 'text-slate-500'}">✓ التجميد</span>
-                <span class="${s.permissions.renamePlayer ? 'text-emerald-400 font-bold' : 'text-slate-500'}">✓ تغيير الاسم</span>
-                <span class="${s.permissions.warnPlayer ? 'text-emerald-400 font-bold' : 'text-slate-500'}">✓ التحذيرات</span>
-                <span class="${s.permissions.managePlayerPhoto ? 'text-emerald-400 font-bold' : 'text-slate-500'}">✓ صور اللاعبين</span>
+                <span class="${s.permissions.approvePlayers ? 'text-blue-400 font-bold' : 'text-slate-500'}">✓ قبول/رفض</span>
+                <span class="${s.permissions.manageMatches ? 'text-blue-400 font-bold' : 'text-slate-500'}">✓ المباريات</span>
+                <span class="${s.permissions.managePlans ? 'text-blue-400 font-bold' : 'text-slate-500'}">✓ الباقات</span>
+                <span class="${s.permissions.managePoints ? 'text-blue-400 font-bold' : 'text-slate-500'}">✓ النقاط</span>
+                <span class="${s.permissions.dismissPlayer ? 'text-blue-400 font-bold' : 'text-slate-500'}">✓ الفصل</span>
+                <span class="${s.permissions.freezePlayer ? 'text-blue-400 font-bold' : 'text-slate-500'}">✓ التجميد</span>
+                <span class="${s.permissions.renamePlayer ? 'text-blue-400 font-bold' : 'text-slate-500'}">✓ تغيير الاسم</span>
+                <span class="${s.permissions.warnPlayer ? 'text-blue-400 font-bold' : 'text-slate-500'}">✓ التحذيرات</span>
+                <span class="${s.permissions.managePlayerPhoto ? 'text-blue-400 font-bold' : 'text-slate-500'}">✓ صور اللاعبين</span>
             </div>
         </div>
     `).join('');
@@ -892,6 +959,24 @@ function loadPlayerDataIntoProfile() {
         document.getElementById('profile-position').innerText = p.position;
         document.getElementById('profile-points').innerText = p.points;
         document.getElementById('profile-permission').innerText = p.permission || 'لاعب عادي';
+        
+        const warnList = document.getElementById('profile-warnings-list');
+        if (warnList) {
+            if (p.warnings && p.warnings.length > 0) {
+                warnList.innerHTML = p.warnings.map(w => `
+                    <div class="p-3 bg-slate-950 border border-rose-500/20 rounded-xl space-y-1">
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs font-bold text-rose-400"><i class="fa-solid fa-exclamation-circle ml-1"></i> ${w.reason}</span>
+                            <span class="text-[10px] text-slate-400">${w.date}</span>
+                        </div>
+                        <span class="block text-[10px] text-slate-500">تم الإصدار بواسطة: <strong class="text-slate-300">${w.issuer || 'الإدارة'}</strong></span>
+                    </div>
+                `).join('');
+            } else {
+                warnList.innerHTML = `<p class="text-xs text-slate-500 text-center py-2">لا توجد أي تحذيرات مسجلة بحقك.</p>`;
+            }
+        }
+        
         updatePlayerChart(p.points);
     }
 }
@@ -904,7 +989,7 @@ function initChart() {
         type: 'line',
         data: {
             labels: ['التسجيل', 'الأسبوع 1', 'الأسبوع 2', 'الأسبوع 3', 'الحالي'],
-            datasets: [{ label: 'تطور النقاط والأداء', data: [0, 0, 0, 0, 0], borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', tension: 0.4, fill: true }]
+            datasets: [{ label: 'تطور النقاط والأداء', data: [0, 0, 0, 0, 0], borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', tension: 0.4, fill: true }]
         },
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#cbd5e1', font: { family: 'Cairo' } } } }, scales: { x: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } }, y: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } } } }
     });
