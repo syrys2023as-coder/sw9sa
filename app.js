@@ -735,7 +735,7 @@ function renderTeammates() {
             </div>
         </div>`;
 
-        // بطاقات المشرفين (تظهر الحرف الأول من اسم المشرف)
+        // بطاقات المشرفين
         staffArray.forEach(s => {
             const firstLetter = s.name ? s.name.charAt(0) : 'م';
             html += `<div class="bg-slate-950 border border-slate-800 p-4 rounded-2xl flex items-center gap-3">
@@ -749,7 +749,7 @@ function renderTeammates() {
             </div>`;
         });
 
-        // بطاقات اللاعبين (تظهر الحرف الأول من اسم اللاعب أو صورته الخاصة إن وجدت)
+        // بطاقات اللاعبين
         if (playerArray.length > 0) {
             playerArray.forEach(p => {
                 const firstLetter = p.name ? p.name.charAt(0) : 'ل';
