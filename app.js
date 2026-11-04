@@ -11,7 +11,9 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-let academyInfo = { name: "أكاديمية ق", logo: "https://cdn.discordapp.com/attachments/1489642112470221052/1567548836832878622/IMG_2367.jpg?ex=6aec951e&is=6aeb439e&hm=41dbf1d87b1c147984bcd0603d1d208469f438cab250b9e7a6530356e159fff1&" };
+const logoUrl = "https://i.ibb.co/6PZ8155/logo.jpg";
+
+let academyInfo = { name: "أكاديمية ق", logo: logoUrl };
 let plans = [
     { id: 1, name: 'الاشتراك الأساسي', price: 250, duration: 'شهرياً', desc: 'مناسب للمبتدئين وتطوير الأساسيات', features: ['2 حصص تدريب أسبوعياً', 'متابعة أداء أساسية', 'زي رياضي مجاني'] },
     { id: 2, name: 'الاشتراك الاحترافي', price: 450, duration: 'شهرياً', desc: 'تطوير شامل ومكثف', features: ['4 حصص تدريب أسبوعياً', 'تحليل بيانات وتصوير بالفيديو', 'المشاركة في الدوري الداخلي'] },
@@ -60,7 +62,7 @@ function showToast(message, type = 'error') {
 db.collection("academy_data").doc("main_data").onSnapshot((doc) => {
     if (doc.exists) {
         const data = doc.data();
-        academyInfo = { name: "أكاديمية ق", logo: "https://cdn.discordapp.com/attachments/1489642112470221052/1567548836832878622/IMG_2367.jpg?ex=6aec951e&is=6aeb439e&hm=41dbf1d87b1c147984bcd0603d1d208469f438cab250b9e7a6530356e159fff1&" };
+        academyInfo = { name: "أكاديمية ق", logo: logoUrl };
         plans = data.plans || plans;
         players = data.players || [];
         matches = data.matches || [];
@@ -111,7 +113,7 @@ function applyAcademyBranding() {
 
     const logoEls = document.querySelectorAll('.academy-logo-display');
     logoEls.forEach(el => {
-        el.innerHTML = `<img src="https://i.ibb.co/6PZ8155/logo.jpg" alt="أكاديمية ق" class="w-full h-full object-cover" onerror="this.onerror=null; this.parentNode.innerHTML='ق';">`;
+        el.innerHTML = `<img src="${logoUrl}" alt="أكاديمية ق" class="w-full h-full object-cover">`;
     });
 }
 
@@ -483,8 +485,8 @@ window.renderAdminTables = function() {
         approvedTbody.innerHTML = approvedList.length === 0 ? `<tr><td colspan="6" class="p-6 text-center text-slate-500">لا يوجد لاعبين معتمدين حالياً</td></tr>` : approvedList.map(p => `
             <tr class="hover:bg-slate-800/50 border-b border-slate-800">
                 <td class="p-3 font-bold text-white flex items-center gap-2">
-                    <div class="w-8 h-8 rounded-full bg-slate-800 overflow-hidden flex items-center justify-center border border-slate-700">
-                        ${p.photoUrl ? `<img src="${p.photoUrl}" class="w-full h-full object-cover">` : `<i class="fa-solid fa-user text-xs text-slate-400"></i>`}
+                    <div class="w-8 h-8 rounded-full bg-blue-500/10 text-blue-400 font-black overflow-hidden flex items-center justify-center border border-blue-500/30 text-xs">
+                        ${p.photoUrl ? `<img src="${p.photoUrl}" class="w-full h-full object-cover">` : (p.name ? p.name.charAt(0) : 'ل')}
                     </div>
                     <div>
                         ${p.name} 
@@ -721,9 +723,10 @@ function renderTeammates() {
     function generateCards(playerArray, staffArray) {
         let html = `<div class="grid grid-cols-1 md:grid-cols-3 gap-4">`;
         
+        // بطاقة المدير العام
         html += `<div class="bg-slate-950 border border-slate-800 p-4 rounded-2xl flex items-center gap-3">
-            <div class="academy-logo-display w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 font-black overflow-hidden shadow">
-                <img src="https://i.ibb.co/6PZ8155/logo.jpg" alt="أكاديمية ق" class="w-full h-full object-cover">
+            <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 font-black text-lg overflow-hidden shadow">
+                م
             </div>
             <div>
                 <span class="text-[10px] bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded font-bold">الإدارة العليا</span>
@@ -732,10 +735,12 @@ function renderTeammates() {
             </div>
         </div>`;
 
+        // بطاقات المشرفين (تظهر الحرف الأول من اسم المشرف)
         staffArray.forEach(s => {
+            const firstLetter = s.name ? s.name.charAt(0) : 'م';
             html += `<div class="bg-slate-950 border border-slate-800 p-4 rounded-2xl flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 font-black">
-                    <img src="https://i.ibb.co/6PZ8155/logo.jpg" alt="أكاديمية ق" class="w-full h-full object-cover">
+                <div class="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 font-black text-lg">
+                    ${firstLetter}
                 </div>
                 <div>
                     <span class="text-[10px] bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded font-bold">${s.title || 'مشرف نظام'}</span>
@@ -744,11 +749,13 @@ function renderTeammates() {
             </div>`;
         });
 
+        // بطاقات اللاعبين (تظهر الحرف الأول من اسم اللاعب أو صورته الخاصة إن وجدت)
         if (playerArray.length > 0) {
             playerArray.forEach(p => {
+                const firstLetter = p.name ? p.name.charAt(0) : 'ل';
                 html += `<div class="bg-slate-950 border border-slate-800 p-4 rounded-2xl flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full bg-slate-800 overflow-hidden flex items-center justify-center border border-slate-700">
-                        ${p.photoUrl ? `<img src="${p.photoUrl}" class="w-full h-full object-cover">` : `<i class="fa-solid fa-user text-xs text-slate-400"></i>`}
+                    <div class="w-10 h-10 rounded-full bg-slate-800 overflow-hidden flex items-center justify-center border border-slate-700 text-blue-400 font-bold text-sm">
+                        ${p.photoUrl ? `<img src="${p.photoUrl}" class="w-full h-full object-cover">` : firstLetter}
                     </div>
                     <div>
                         <span class="text-[10px] bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded font-bold">لاعب معتمد</span>
