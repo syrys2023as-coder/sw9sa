@@ -89,6 +89,7 @@ db.collection("military_police").doc("system_data").onSnapshot((doc) => {
                     currentUser.rank = fresh.rank;
                     currentUser.codeNumber = fresh.codeNumber;
                     currentUser.totalSeconds = fresh.totalSeconds;
+                    currentUser.permissions = fresh.permissions || {};
                 }
             }
         }
@@ -483,7 +484,6 @@ function renderAdminPanels() {
         }
     }
 
-    // إدارة الأفراد (مع أزرار تعديل اليوزر/الباس، والتحذير، والملاحظات، والرتبة)
     const membersTbody = document.getElementById('admin-members-tbody');
     const approved = [...members].sort((a, b) => a.codeNumber - b.codeNumber);
     membersTbody.innerHTML = approved.map(m => `
@@ -492,6 +492,7 @@ function renderAdminPanels() {
             <td class="p-4">
                 <span class="text-[11px] text-red-600 font-bold block">${m.rank}</span>
                 <span class="font-bold text-slate-900">${m.name}</span>
+                <span class="text-[10px] text-slate-500 block">قطاع: ${m.sector || 'غير مسجل'}</span>
             </td>
             <td class="p-4 font-mono text-xs">${m.discordId}</td>
             <td class="p-4 font-bold text-red-600">${formatTimeDetailed(m.totalSeconds || 0)}</td>
@@ -509,7 +510,6 @@ function renderAdminPanels() {
         </tr>
     `).join('');
 
-    // إدارة التحذيرات في قسمها المخصص
     const warnManageList = document.getElementById('admin-warnings-management-list');
     if (warnManageList) {
         let allWarningsHtml = '';
@@ -531,7 +531,6 @@ function renderAdminPanels() {
         warnManageList.innerHTML = allWarningsHtml || `<p class="text-xs text-slate-400">لا توجد تحذيرات مسجلة للأفراد حالياً.</p>`;
     }
 
-    // صفحة الجرد وأعلى الساعات
     const leaderboardContainer = document.getElementById('admin-leaderboard-container');
     if (leaderboardContainer) {
         let allForLeaderboard = [...approved];
@@ -560,7 +559,6 @@ function renderAdminPanels() {
         `).join('');
     }
 
-    // تحديث قائمة اختيار الأفراد للخفارات
     renderGuardDuties();
 }
 
@@ -599,7 +597,6 @@ window.editMemberDetails = function(id) {
     showAlert('تم تحديث بيانات الفرد بنجاح.');
 }
 
-// دالة تعديل اسم المستخدم وكلمة المرور للفرد
 window.openCredentialsModal = function(id) {
     const m = members.find(x => x.id === id);
     if (!m) return;
@@ -625,6 +622,7 @@ window.handleAdminCreateMember = function(e) {
     e.preventDefault();
     const name = document.getElementById('add-m-name').value.trim();
     const rank = document.getElementById('add-m-rank').value;
+    const sector = document.getElementById('add-m-sector').value.trim(); // استعادة حقل القطاع الحالي
     const codeMode = document.getElementById('add-m-code-mode').value;
     const customCode = parseInt(document.getElementById('add-m-code-num').value);
     const discordId = document.getElementById('add-m-discord').value.trim();
@@ -644,17 +642,17 @@ window.handleAdminCreateMember = function(e) {
         finalCode = customCode;
     }
 
-    // تم حذف قطاعك الحالي نهائياً من بيانات الإضافة
     members.push({
         id: Date.now(),
         name,
         rank,
+        sector, // تخزين القطاع الحالي
         codeNumber: finalCode,
         discordId,
         username,
         password,
         positionTitle: 'فرد شرطة عسكرية',
-        permissions: {},
+        permissions: {}, // تبدأ الصلاحيات فارغة تماماً لكي لا يفعل شيئاً إلا بالصلاحيات المعطاة
         totalSeconds: 0,
         onDuty: false,
         adminNote: '',
@@ -696,10 +694,14 @@ window.deleteWarning = function(memberId, warnIdx) {
     const m = members.find(x => x.id === memberId);
     if (!m) return;
     if (confirm('هل أنت متأكد من حذف هذا التحذير؟')) {
-        m.warnings.splice(warnIdx, 1);
-        saveSystemData();
-        showAlert('تم حذف التحذير بنجاح.');
-        refreshAllUI();
+        if (m.warnings && m.warnings[warnIdx] !== undefined) {
+            m.warnings.splice(warnIdx, 1);
+            saveSystemData();
+            showAlert('تم حذف التحذير بنجاح.');
+            renderAdminPanels();
+        } else {
+            showAlert('حدث خطأ: التحذير غير موجود.', true);
+        }
     }
 }
 
@@ -713,7 +715,6 @@ window.dismissMember = function(id) {
     }
 }
 
-// إدارة وتكليف الخفارات
 window.handleAssignGuardDuty = function(e) {
     e.preventDefault();
     const memberId = parseInt(document.getElementById('guard-member-select').value);
@@ -794,18 +795,19 @@ window.handleCommanderCreateLeader = function(e) {
         return;
     }
 
+    // جميع الصلاحيات تبدأ كـ false افتراضياً، ولا تمنح إلا ما يختاره القائد
     const permissions = {
-        addMember: true,
-        editName: true,
-        editRank: true,
-        dismissMember: true,
-        warnMember: true,
-        manageGuards: true,
-        manageNotes: true,
-        canAnnounce: true,
-        editCredentials: true,
-        viewLogs: true,
-        viewLeaderboard: document.getElementById('perm-view-leaderboard')?.checked || true
+        addMember: document.getElementById('perm-add-member')?.checked || false,
+        editName: document.getElementById('perm-edit-name')?.checked || false,
+        editRank: document.getElementById('perm-edit-rank')?.checked || false,
+        dismissMember: document.getElementById('perm-dismiss')?.checked || false,
+        warnMember: document.getElementById('perm-warn']')?.checked || false,
+        manageGuards: document.getElementById('perm-guards')?.checked || false,
+        manageNotes: document.getElementById('perm-notes']')?.checked || false,
+        canAnnounce: document.getElementById('perm-announce')?.checked || false,
+        editCredentials: document.getElementById('perm-credentials']')?.checked || false,
+        viewLogs: document.getElementById('perm-logs')?.checked || false,
+        viewLeaderboard: document.getElementById('perm-view-leaderboard')?.checked || false
     };
 
     members.push({
