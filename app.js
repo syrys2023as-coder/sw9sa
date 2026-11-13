@@ -235,7 +235,6 @@ window.handleLogin = function(e) {
             };
             showAlert('تم تسجيل الدخول كقائد عام بنجاح');
             refreshAllUI();
-            // التوجيه المباشر إلى الصفحة الرئيسية فور تسجيل الدخول
             switchView('home');
         });
         return;
@@ -251,8 +250,6 @@ window.handleLogin = function(e) {
     playAlertSound();
     showAlert(`أهلاً بك ${found.rank} / ${found.name}`);
     refreshAllUI();
-    
-    // التوجيه المباشر إلى الصفحة الرئيسية فور تسجيل الدخول لجميع المستخدمين
     switchView('home');
 }
 
@@ -347,8 +344,15 @@ window.renderPublicRoster = function() {
 
     document.getElementById('stat-total-members').innerText = approved.length;
     document.getElementById('stat-on-duty').innerText = approved.filter(m => m.onDuty).length;
-    const maxCode = approved.length > 0 ? Math.max(...approved.map(m => m.codeNumber)) : 1;
-    document.getElementById('stat-highest-code').innerText = `سيف ${maxCode}`;
+
+    const onlineMembers = approved.filter(m => m.onDuty);
+    let highestActiveDisplay = "لا يوجد";
+    if (onlineMembers.length > 0) {
+        onlineMembers.sort((a, b) => MILITARY_RANKS.indexOf(b.rank) - MILITARY_RANKS.indexOf(a.rank));
+        highestActiveDisplay = `${onlineMembers[0].rank} (${onlineMembers[0].name})`;
+    }
+    const highestCodeEl = document.getElementById('stat-highest-code');
+    if (highestCodeEl) highestCodeEl.innerText = highestActiveDisplay;
 
     const filtered = approved.filter(m => 
         m.name.toLowerCase().includes(search) || 
@@ -479,7 +483,7 @@ function renderAdminPanels() {
         }
     }
 
-    // إدارة الأفراد مع عرض الساعات والدقائق والثواني بدقة
+    // إدارة الأفراد (مع أزرار تعديل اليوزر/الباس، والتحذير، والملاحظات، والرتبة)
     const membersTbody = document.getElementById('admin-members-tbody');
     const approved = [...members].sort((a, b) => a.codeNumber - b.codeNumber);
     membersTbody.innerHTML = approved.map(m => `
@@ -496,13 +500,36 @@ function renderAdminPanels() {
                 <button onclick="editAdminNote(${m.id})" class="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded font-bold text-[10px]">✏️ ملاحظة</button>
             </td>
             <td class="p-4 flex flex-wrap gap-1">
-                <button onclick="editMemberDetails(${m.id})" class="px-2 py-1 bg-red-50 text-red-600 rounded text-xs font-bold">تعديل</button>
+                <button onclick="editMemberDetails(${m.id})" class="px-2 py-1 bg-red-50 text-red-600 rounded text-xs font-bold">تعديل الاسم/الكود</button>
+                <button onclick="openCredentialsModal(${m.id})" class="px-2 py-1 bg-blue-50 text-blue-600 rounded text-xs font-bold">تعديل اليوزر/الباس</button>
                 <button onclick="editMemberRank(${m.id})" class="px-2 py-1 bg-slate-100 rounded text-xs font-bold">رتبة</button>
                 <button onclick="warnMember(${m.id})" class="px-2 py-1 bg-amber-500 text-white rounded text-xs font-bold">تحذير</button>
                 <button onclick="dismissMember(${m.id})" class="px-2 py-1 bg-slate-900 text-white rounded text-xs font-bold">فصل</button>
             </td>
         </tr>
     `).join('');
+
+    // إدارة التحذيرات في قسمها المخصص
+    const warnManageList = document.getElementById('admin-warnings-management-list');
+    if (warnManageList) {
+        let allWarningsHtml = '';
+        approved.forEach(m => {
+            if (m.warnings && m.warnings.length > 0) {
+                m.warnings.forEach((w, idx) => {
+                    allWarningsHtml += `
+                        <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center text-xs">
+                            <div>
+                                <span class="font-black text-slate-900 block">${m.rank} / ${m.name} (سيف ${m.codeNumber})</span>
+                                <span class="text-slate-600">${w.reason} <strong class="text-slate-400">(${w.date})</strong></span>
+                            </div>
+                            <button onclick="deleteWarning(${m.id}, ${idx})" class="px-2 py-1 bg-rose-50 text-rose-600 rounded font-bold">حذف التحذير</button>
+                        </div>
+                    `;
+                });
+            }
+        });
+        warnManageList.innerHTML = allWarningsHtml || `<p class="text-xs text-slate-400">لا توجد تحذيرات مسجلة للأفراد حالياً.</p>`;
+    }
 
     // صفحة الجرد وأعلى الساعات
     const leaderboardContainer = document.getElementById('admin-leaderboard-container');
@@ -532,6 +559,9 @@ function renderAdminPanels() {
             </div>
         `).join('');
     }
+
+    // تحديث قائمة اختيار الأفراد للخفارات
+    renderGuardDuties();
 }
 
 window.editAdminNote = function(id) {
@@ -569,6 +599,28 @@ window.editMemberDetails = function(id) {
     showAlert('تم تحديث بيانات الفرد بنجاح.');
 }
 
+// دالة تعديل اسم المستخدم وكلمة المرور للفرد
+window.openCredentialsModal = function(id) {
+    const m = members.find(x => x.id === id);
+    if (!m) return;
+    const newUsername = prompt(`تعديل اسم المستخدم (اليوزر) للفرد (${m.name}):`, m.username || '');
+    if (newUsername === null) return;
+    const newPassword = prompt(`تعديل كلمة المرور الجديدة للفرد (${m.name}):`, m.password || '');
+    if (newPassword === null) return;
+
+    if (!newUsername.trim() || !newPassword.trim()) {
+        showAlert('لا يمكن ترك حقل اليوزر أو الباسورد فارغاً!', true);
+        return;
+    }
+
+    m.username = newUsername.trim();
+    m.password = newPassword.trim();
+    playAlertSound();
+    addAuditLog(`عدل بيانات الدخول (اليوزر/الباس) للفرد ${m.name}`);
+    saveSystemData();
+    showAlert('تم تحديث بيانات الدخول بنجاح.');
+}
+
 window.handleAdminCreateMember = function(e) {
     e.preventDefault();
     const name = document.getElementById('add-m-name').value.trim();
@@ -592,7 +644,7 @@ window.handleAdminCreateMember = function(e) {
         finalCode = customCode;
     }
 
-    // إزالة حقل القطاع الحالي تماماً عند إضافة فرد جديد
+    // تم حذف قطاعك الحالي نهائياً من بيانات الإضافة
     members.push({
         id: Date.now(),
         name,
@@ -630,12 +682,24 @@ window.editMemberRank = function(id) {
 
 window.warnMember = function(id) {
     const m = members.find(x => x.id === id);
-    const reason = prompt(`أدخل سبب التحذير لـ ${m.name}:`);
+    const reason = prompt(`أدخل سبب التحذير للفرد ${m.name}:`);
     if (reason && reason.trim()) {
         if (!m.warnings) m.warnings = [];
         m.warnings.push({ reason: reason.trim(), date: new Date().toLocaleDateString('ar-SA') });
         saveSystemData();
-        showAlert('تم إرسال التحذير بنجاح.');
+        showAlert('تم إرسال وتحجيل التحذير بنجاح.');
+        refreshAllUI();
+    }
+}
+
+window.deleteWarning = function(memberId, warnIdx) {
+    const m = members.find(x => x.id === memberId);
+    if (!m) return;
+    if (confirm('هل أنت متأكد من حذف هذا التحذير؟')) {
+        m.warnings.splice(warnIdx, 1);
+        saveSystemData();
+        showAlert('تم حذف التحذير بنجاح.');
+        refreshAllUI();
     }
 }
 
@@ -647,6 +711,67 @@ window.dismissMember = function(id) {
         saveSystemData();
         showAlert('تم فصل الفرد ونقله للأرشيف.');
     }
+}
+
+// إدارة وتكليف الخفارات
+window.handleAssignGuardDuty = function(e) {
+    e.preventDefault();
+    const memberId = parseInt(document.getElementById('guard-member-select').value);
+    const location = document.getElementById('guard-location').value.trim();
+    const durationMins = parseInt(document.getElementById('guard-duration-mins').value);
+    const note = document.getElementById('guard-note').value.trim();
+
+    const member = members.find(m => m.id === memberId);
+    if (!member) return;
+
+    guardDuties.unshift({
+        id: Date.now(),
+        memberId: member.id,
+        memberName: member.name,
+        memberCode: member.codeNumber,
+        location,
+        durationMins,
+        note,
+        issuerName: currentUser.name,
+        issuerRank: currentUser.rank || 'قائد',
+        assignedAt: Date.now(),
+        status: 'pending'
+    });
+
+    playAlertSound();
+    pushNotification('أمر خفارة', `تم تكليف الفرد (${member.name} - سيف ${member.codeNumber}) بخفارة في ${location}`);
+    addAuditLog(`كلف الفرد ${member.name} (سيف ${member.codeNumber}) بخفارة في ${location}`);
+    saveSystemData();
+    e.target.reset();
+    showAlert('تم إرسال أمر الخفارة للفرد بنجاح.');
+}
+
+function renderGuardDuties() {
+    const select = document.getElementById('guard-member-select');
+    if (select) {
+        const approved = [...members].sort((a, b) => a.codeNumber - b.codeNumber);
+        select.innerHTML = approved.map(m => `<option value="${m.id}">سيف ${m.codeNumber} - ${m.rank} / ${m.name}</option>`).join('');
+    }
+
+    const tbody = document.getElementById('admin-guards-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = guardDuties.length === 0 ? `<tr><td colspan="5" class="p-6 text-center text-slate-400">لا توجد خفارات مسجلة حالياً.</td></tr>` : guardDuties.map(g => `
+        <tr>
+            <td class="p-4 font-bold">سيف ${g.memberCode} - ${g.memberName}</td>
+            <td class="p-4 text-xs">${g.location} <br><span class="text-slate-500">ملاحظة: ${g.note || 'لا توجد'}</span></td>
+            <td class="p-4 text-xs font-bold text-red-600">${g.issuerRank} / ${g.issuerName}</td>
+            <td class="p-4 text-xs">
+                ${g.status === 'pending' ? '<span class="text-amber-600 font-bold block">قيد التنفيذ</span>' : '<span class="text-emerald-600 font-bold block">مكتملة</span>'}
+            </td>
+            <td class="p-4"><button onclick="deleteGuard(${g.id})" class="px-2 py-1 bg-slate-200 rounded text-xs">حذف</button></td>
+        </tr>
+    `).join('');
+}
+
+window.deleteGuard = function(id) {
+    guardDuties = guardDuties.filter(g => g.id !== id);
+    saveSystemData();
+    refreshAllUI();
 }
 
 window.handleCommanderCreateLeader = function(e) {
@@ -669,7 +794,6 @@ window.handleCommanderCreateLeader = function(e) {
         return;
     }
 
-    // إضافة صلاحية معاينة صفحة أوقات الجرد للمسؤولين
     const permissions = {
         addMember: true,
         editName: true,
