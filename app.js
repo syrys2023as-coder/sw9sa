@@ -23,6 +23,7 @@ let guardDuties = [];
 let auditLogs = [];
 let systemNotifications = [];
 let currentUser = null;
+let activeAdminTabId = 'tab-members'; // حفظ التبويب النشط لعدم الخروج منه
 
 const savedUserSession = localStorage.getItem('mp_current_user');
 if (savedUserSession) {
@@ -230,12 +231,16 @@ window.switchAdminTab = function(tabId, btnEl) {
     if (tabId === 'tab-inventory' && !checkAdminPerm('inventoryManager', 'إدارة الجرد والساعات')) return;
     if (tabId === 'tab-permissions-overview' && !checkAdminPerm('addMember', 'قائمة المسؤولين')) return;
 
+    activeAdminTabId = tabId; // تحديث التبويب النشط الحالي
+
     document.querySelectorAll('.admin-pane').forEach(p => p.classList.add('hidden'));
     document.querySelectorAll('.admin-tab').forEach(b => {
         b.classList.remove('bg-red-600', 'text-white');
         b.classList.add('bg-slate-100', 'text-slate-700');
     });
-    document.getElementById(tabId).classList.remove('hidden');
+    const pane = document.getElementById(tabId);
+    if (pane) pane.classList.remove('hidden');
+    
     if (btnEl) {
         btnEl.classList.remove('bg-slate-100', 'text-slate-700');
         btnEl.classList.add('bg-red-600', 'text-white');
@@ -350,6 +355,7 @@ function refreshAllUI() {
     }
 }
 
+// بناء تبويبات لوحة التحكم مع الحفاظ على التبويب النشط وعدم الخروج منه عند التحديث
 function renderAdminTabs() {
     const container = document.getElementById('admin-tabs-container');
     if (!container) return;
@@ -408,9 +414,9 @@ function renderAdminTabs() {
     container.innerHTML = html;
 
     if (availableTabs.length > 0) {
-        const firstTabId = availableTabs[0];
-        const firstBtn = document.getElementById(`btn-${firstTabId}`);
-        switchAdminTab(firstTabId, firstBtn);
+        let targetTab = availableTabs.includes(activeAdminTabId) ? activeAdminTabId : availableTabs[0];
+        const targetBtn = document.getElementById(`btn-${targetTab}`);
+        switchAdminTab(targetTab, targetBtn);
     }
 }
 
@@ -651,26 +657,27 @@ window.uploadGuardVideo = function(e, guardId) {
     const file = e.target.files[0];
     if (!file) return;
 
-    // تنبيه لبدء القراءة
-    showAlert('جاري رفع ومعالجة فيديو الخفارة...');
+    showAlert('جاري رفع ومعالجة فيديو الخفارة وحفظه...');
 
     const reader = new FileReader();
     reader.onload = function(uploadEvent) {
         const videoDataUrl = uploadEvent.target.result;
+        
         const duty = guardDuties.find(g => g.id === guardId);
         if (duty) {
             duty.videoUrl = videoDataUrl;
             duty.status = 'completed';
         }
+
         saveSystemData();
-        showAlert('تم رفع ومعالجة فيديو الخفارة بنجاح وتحديث حالته.');
+        
+        showAlert('تم رفع ومعالجة فيديو الخفارة وتحديث حالته بنجاح.');
         renderMemberDashboard();
         renderAdminPanels();
     };
     reader.readAsDataURL(file);
 }
 
-// دالة فتح وتشغيل الفيديو داخل الموقع في نافذة منبثقة مباشرة دون تحميل
 window.openVideoModal = function(url) {
     let modal = document.getElementById('video-preview-modal');
     if (!modal) {
@@ -782,7 +789,7 @@ function renderAdminPanels() {
                 <td class="p-4 font-mono font-bold text-red-600">${formatTimeDetailed(m.totalSeconds || 0)}</td>
                 <td class="p-4 flex gap-2">
                     <button onclick="adjustMemberTime(${m.id}, 3600)" class="px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded text-xs font-bold border border-emerald-200">+ ساعة</button>
-                    <button onclick="adjustMemberTime(${m.id}, -3600)" class="px-2.5 py-1 bg-amber-50 text-amber-700 rounded text-xs font-bold border border-amber-200">- ساعة</button>
+                    <button onclick="adjustMemberTime(${m.id}, -3600)" class="px-2.5 py-1 bg-amber-50 text-amber-700 rounded text-xs font-bold border border-emerald-200">- ساعة</button>
                     <button onclick="setCustomMemberTime(${m.id})" class="px-2.5 py-1 bg-slate-100 text-slate-700 rounded text-xs font-bold">تعديل دقيق</button>
                 </td>
             </tr>
@@ -881,7 +888,8 @@ function renderAdminPanels() {
 }
 
 window.adjustMemberTime = function(id, secondsDelta) {
-    if (!checkAdminPerm('inventoryManager', 'إدارة وزيادة/نقصان الساعات')) return;
+    // تم ربطها بصلاحية تعديل الساعات (editHours)
+    if (!checkAdminPerm('editHours', 'تعديل وزيادة/نقصان الساعات')) return;
 
     if (id === 'root_commander') {
         currentUser.totalSeconds = Math.max(0, (currentUser.totalSeconds || 0) + secondsDelta);
@@ -898,7 +906,8 @@ window.adjustMemberTime = function(id, secondsDelta) {
 }
 
 window.setCustomMemberTime = function(id) {
-    if (!checkAdminPerm('inventoryManager', 'تعديل الساعات بدقة')) return;
+    // تم ربطها بصلاحية تعديل الساعات (editHours)
+    if (!checkAdminPerm('editHours', 'تعديل الساعات بدقة')) return;
 
     let currentSecs = 0;
     let targetName = '';
@@ -975,7 +984,8 @@ window.openEditLeaderPermissionsModal = function(id) {
                 <label class="flex items-center gap-2 p-2 bg-slate-50 rounded-xl cursor-pointer"><input type="checkbox" id="edit-perm-warn" ${p.warnMember ? 'checked' : ''}> التحذيرات</label>
                 <label class="flex items-center gap-2 p-2 bg-slate-50 rounded-xl cursor-pointer"><input type="checkbox" id="edit-perm-guards" ${p.manageGuards ? 'checked' : ''}> إدارة الخفارات</label>
                 <label class="flex items-center gap-2 p-2 bg-slate-50 rounded-xl cursor-pointer"><input type="checkbox" id="edit-perm-notes" ${p.manageNotes ? 'checked' : ''}> الملاحظات السرية</label>
-                <label class="flex items-center gap-2 p-2 bg-slate-50 rounded-xl cursor-pointer"><input type="checkbox" id="edit-perm-inventory" ${p.inventoryManager ? 'checked' : ''}> 📊 الجرد والساعات</label>
+                <label class="flex items-center gap-2 p-2 bg-slate-50 rounded-xl cursor-pointer"><input type="checkbox" id="edit-perm-inventory" ${p.inventoryManager ? 'checked' : ''}> 📊 عرض الجرد</label>
+                <label class="flex items-center gap-2 p-2 bg-slate-50 rounded-xl cursor-pointer"><input type="checkbox" id="edit-perm-edithours" ${p.editHours ? 'checked' : ''}> ⏱️ تعديل الساعات (+ و -)</label>
                 <label class="flex items-center gap-2 p-2 bg-slate-50 rounded-xl cursor-pointer"><input type="checkbox" id="edit-perm-announce" ${p.canAnnounce ? 'checked' : ''}> التعاميم والتنبيهات</label>
                 <label class="flex items-center gap-2 p-2 bg-slate-50 rounded-xl cursor-pointer"><input type="checkbox" id="edit-perm-credentials" ${p.editCredentials ? 'checked' : ''}> اليوزر والباسورد</label>
                 <label class="flex items-center gap-2 p-2 bg-slate-50 rounded-xl cursor-pointer"><input type="checkbox" id="edit-perm-logs" ${p.viewLogs ? 'checked' : ''}> سجل العمليات</label>
@@ -998,6 +1008,7 @@ window.saveLeaderPermissions = function(id) {
         manageGuards: document.getElementById('edit-perm-guards').checked,
         manageNotes: document.getElementById('edit-perm-notes').checked,
         inventoryManager: document.getElementById('edit-perm-inventory').checked,
+        editHours: document.getElementById('edit-perm-edithours').checked,
         canAnnounce: document.getElementById('edit-perm-announce').checked,
         editCredentials: document.getElementById('edit-perm-credentials').checked,
         viewLogs: document.getElementById('edit-perm-logs').checked
@@ -1270,7 +1281,7 @@ function renderGuardDuties() {
             </td>
             <td class="p-4 text-xs font-bold text-red-600">${g.issuerRank} / ${g.issuerName}</td>
             <td class="p-4 text-xs">
-                ${g.status === 'pending' ? '<span class="text-amber-600 font-bold block">بانتظار رفع الفيديو</span>' : '<span class="text-emerald-600 font-bold block">مكتملة (تم رفع الفيديو)</span>'}
+                ${g.status === 'completed' || g.videoUrl ? '<span class="text-emerald-600 font-bold block">مكتملة (تم رفع الفيديو)</span>' : '<span class="text-amber-600 font-bold block">بانتظار رفع الفيديو</span>'}
             </td>
             <td class="p-4"><button onclick="deleteGuard(${g.id})" class="px-2 py-1 bg-slate-200 rounded text-xs">حذف</button></td>
         </tr>
@@ -1318,6 +1329,7 @@ window.handleCommanderCreateLeader = function(e) {
         manageGuards: document.getElementById('perm-guards')?.checked || false,
         manageNotes: document.getElementById('perm-notes')?.checked || false,
         inventoryManager: document.getElementById('perm-inventory')?.checked || false,
+        editHours: document.getElementById('perm-edit-hours')?.checked || false,
         canAnnounce: document.getElementById('perm-announce')?.checked || false,
         editCredentials: document.getElementById('perm-edit-credentials')?.checked || false,
         viewLogs: document.getElementById('perm-view-logs')?.checked || false
