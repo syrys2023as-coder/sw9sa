@@ -329,6 +329,121 @@ function refreshAllUI() {
     renderAdminPanels();
     renderGuardDuties();
     renderDutyPanel();
+    if (currentUser && currentUser.id !== 'root_commander') {
+        renderMemberDashboard();
+    }
+}
+
+// دالة عرض ملف الفرد الشخصي والتعاميم الخاصة به وت ىفع فيديو الخفارة
+window.renderMemberDashboard = function() {
+    const container = document.getElementById('view-member-dashboard');
+    if (!container || !currentUser) return;
+
+    const myGuards = guardDuties.filter(g => g.memberId === currentUser.id);
+    const myWarnings = currentUser.warnings || [];
+
+    container.innerHTML = `
+        <div class="max-w-4xl mx-auto space-y-6 p-6">
+            <!-- كارت الملف الشخصي -->
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 flex justify-between items-center">
+                <div>
+                    <span class="px-3 py-1 bg-red-600 text-white font-black rounded-xl text-xs inline-block mb-2">سيف ${currentUser.codeNumber}</span>
+                    <h2 class="text-xl font-black text-slate-900">${currentUser.rank} / ${currentUser.name}</h2>
+                    <span class="text-xs text-slate-500">فرد شرطة عسكرية | ديسكورد: ${currentUser.discordId || 'غير مسجل'}</span>
+                </div>
+                <div>
+                    <label class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-md inline-block">
+                        🎥 رفع فيديو الخفارة
+                        <input type="file" accept="video/*" class="hidden" onchange="uploadGuardVideo(event, ${currentUser.id})">
+                    </label>
+                </div>
+            </div>
+
+            <!-- خفارات الفرد الميدانية -->
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-3">
+                <h3 class="font-black text-slate-900 text-sm">أوامر تكليف بخفارة عسكرية</h3>
+                ${myGuards.length === 0 ? '<p class="text-xs text-slate-400">لا توجد خفارات مكلف بها حالياً.</p>' : myGuards.map(g => `
+                    <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex justify-between items-center text-xs">
+                        <div>
+                            <span class="font-black text-slate-900 block">الموقع: ${g.location} (المدة: ${g.durationMins} دقيقة)</span>
+                            <span class="text-slate-500">ملاحظة: ${g.note || 'لا توجد ملاحظات'}</span>
+                            ${g.videoUrl ? `<span class="text-emerald-600 font-bold block mt-1">✓ تم رفع فيديو الإثبات بنجاح</span>` : ''}
+                        </div>
+                        <div>
+                            ${g.videoUrl ? `<button onclick="openVideoModal('${g.videoUrl}')" class="px-3 py-1.5 bg-slate-900 text-white font-bold rounded-xl">معاينة الفيديو المرفوع</button>` : '<span class="text-amber-600 font-bold">بانتظار رفع الفيديو</span>'}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+
+            <!-- التحذيرات الإدارية -->
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-3">
+                <h3 class="font-black text-slate-900 text-sm">🚨 سجل التحذيرات الإدارية الخاصة بك</h3>
+                ${myWarnings.length === 0 ? '<p class="text-xs text-slate-400">سجل نظيف، لا توجد أي تحذيرات مسجلة.</p>' : myWarnings.map(w => `
+                    <div class="p-3 bg-rose-50 border border-rose-100 rounded-xl text-xs text-rose-800 font-bold flex justify-between">
+                        <span>${w.reason}</span>
+                        <span class="text-rose-400">${w.date}</span>
+                    </div>
+                `).join('')}
+            </div>
+
+            <!-- التعاميم والأوامر العسكرية -->
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-3">
+                <h3 class="font-black text-slate-900 text-sm">📢 التعاميم والأوامر العسكرية الرسمية</h3>
+                ${announcements.length === 0 ? '<p class="text-xs text-slate-400">لا توجد تعاميم حالياً.</p>' : announcements.map(a => `
+                    <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-1 text-xs">
+                        <span class="font-black text-slate-900 text-sm block">${a.title}</span>
+                        <p class="text-slate-700">${a.body}</p>
+                        <span class="text-[10px] text-slate-400 block pt-1">بواسطة: ${a.author} (${a.date})</span>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+}
+
+// رفع فيديو الخفارة وتحويله لتنسيق رابط داخل البيانات
+window.uploadGuardVideo = function(e, memberId) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(uploadEvent) {
+        const videoDataUrl = uploadEvent.target.result;
+        const duty = guardDuties.find(g => g.memberId === memberId && g.status === 'pending');
+        if (duty) {
+            duty.videoUrl = videoDataUrl;
+            duty.status = 'completed';
+        } else if (guardDuties.length > 0) {
+            guardDuties[0].videoUrl = videoDataUrl;
+            guardDuties[0].status = 'completed';
+        }
+        saveSystemData();
+        showAlert('تم رفع فيديو الخفارة بنجاح وإرساله للمسؤولين.');
+        renderMemberDashboard();
+    };
+    reader.readAsDataURL(file);
+}
+
+// فتح نافذة معاينة الفيديو للمسؤولين أو الأفراد دون تحميل
+window.openVideoModal = function(url) {
+    let modal = document.getElementById('video-preview-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'video-preview-modal';
+        modal.className = 'fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4';
+        modal.innerHTML = `
+            <div class="bg-white rounded-3xl overflow-hidden max-w-2xl w-full p-4 space-y-3 shadow-2xl">
+                <div class="flex justify-between items-center">
+                    <h3 class="font-black text-sm text-slate-900">معاينة فيديو إثبات الخفارة</h3>
+                    <button onclick="document.getElementById('video-preview-modal').remove()" class="px-3 py-1 bg-slate-100 rounded-xl text-xs font-bold">✕ إغلاق</button>
+                </div>
+                <video id="modal-video-source" controls class="w-full rounded-2xl max-h-[70vh] bg-black"></video>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    document.getElementById('modal-video-source').src = url;
 }
 
 window.renderPublicRoster = function() {
@@ -502,7 +617,6 @@ function renderAdminPanels() {
             <td class="p-4">
                 <span class="text-[11px] text-red-600 font-bold block">${m.rank}</span>
                 <span class="font-bold text-slate-900">${m.name}</span>
-                <span class="text-[10px] text-slate-500 block">قطاع: ${m.sector || 'غير مسجل'}</span>
             </td>
             <td class="p-4 font-mono text-xs">${m.discordId}</td>
             <td class="p-4 font-bold text-red-600">${formatTimeDetailed(m.totalSeconds || 0)}</td>
@@ -569,7 +683,6 @@ function renderAdminPanels() {
         `).join('');
     }
 
-    // عرض قائمة التعاميم الحالية في لوحة التحكم
     const annListContainer = document.getElementById('admin-announcements-list');
     if (annListContainer) {
         annListContainer.innerHTML = announcements.length === 0 ? `<p class="text-xs text-slate-400">لا توجد تعاميم مسجلة حالياً.</p>` : announcements.map((a, idx) => `
@@ -650,7 +763,6 @@ window.handleAdminCreateMember = function(e) {
     e.preventDefault();
     const name = document.getElementById('add-m-name').value.trim();
     const rank = document.getElementById('add-m-rank').value;
-    const sector = document.getElementById('add-m-sector').value.trim();
     const codeMode = document.getElementById('add-m-code-mode').value;
     const customCode = parseInt(document.getElementById('add-m-code-num').value);
     const discordId = document.getElementById('add-m-discord').value.trim();
@@ -674,7 +786,6 @@ window.handleAdminCreateMember = function(e) {
         id: Date.now(),
         name,
         rank,
-        sector,
         codeNumber: finalCode,
         discordId,
         username,
@@ -743,7 +854,6 @@ window.dismissMember = function(id) {
     }
 }
 
-// دالة نشر التعميم أو التنبيه العسكري
 window.handlePostAnnouncement = function(e) {
     e.preventDefault();
     const title = document.getElementById('ann-title').value.trim();
@@ -824,10 +934,12 @@ function renderGuardDuties() {
     tbody.innerHTML = guardDuties.length === 0 ? `<tr><td colspan="5" class="p-6 text-center text-slate-400">لا توجد خفارات مسجلة حالياً.</td></tr>` : guardDuties.map(g => `
         <tr>
             <td class="p-4 font-bold">سيف ${g.memberCode} - ${g.memberName}</td>
-            <td class="p-4 text-xs">${g.location} <br><span class="text-slate-500">ملاحظة: ${g.note || 'لا توجد'}</span></td>
+            <td class="p-4 text-xs">${g.location} <br><span class="text-slate-500">ملاحظة: ${g.note || 'لا توجد'}</span>
+                ${g.videoUrl ? `<br><button onclick="openVideoModal('${g.videoUrl}')" class="mt-1 text-red-600 font-bold underline">🎥 معاينة فيديو الخفارة</button>` : ''}
+            </td>
             <td class="p-4 text-xs font-bold text-red-600">${g.issuerRank} / ${g.issuerName}</td>
             <td class="p-4 text-xs">
-                ${g.status === 'pending' ? '<span class="text-amber-600 font-bold block">قيد التنفيذ</span>' : '<span class="text-emerald-600 font-bold block">مكتملة</span>'}
+                ${g.status === 'pending' ? '<span class="text-amber-600 font-bold block">بانتظار رفع الفيديو</span>' : '<span class="text-emerald-600 font-bold block">مكتملة (تم رفع الفيديو)</span>'}
             </td>
             <td class="p-4"><button onclick="deleteGuard(${g.id})" class="px-2 py-1 bg-slate-200 rounded text-xs">حذف</button></td>
         </tr>
