@@ -3,470 +3,423 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>قيادة الشرطة العسكرية - النظام الإداري المتقدم</title>
+    <title>نظام الشرطة العسكرية</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <!-- Google Fonts (Cairo) -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
         body { font-family: 'Cairo', sans-serif; }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col justify-between">
 
+    <!-- صوت التنبيهات -->
     <audio id="alert-sound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
+    <!-- حاوية النوافذ المنبثقة -->
     <div id="custom-modal-container"></div>
 
+    <!-- الهيدر العلوي -->
     <header class="bg-white border-b-2 border-red-600 sticky top-0 z-50 shadow-sm">
         <div class="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
+            
+            <!-- الشعار والاسم (صورة الشعار في الأعلى يمين) -->
             <div class="flex items-center gap-3 cursor-pointer" onclick="switchView('home')">
-               <img src="رابط_الصورة_هنا" class="w-12 h-12 rounded-2xl object-cover shadow-md" alt="شعار">
+                <!-- استبدل الرابط أدناه برابط صورتك المباشر -->
+                <img src="رابط_الصورة_هنا" class="w-12 h-12 rounded-2xl object-cover shadow-md bg-red-600 text-white" alt="شعار" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100&auto=format&fit=crop&q=60';">
                 <div>
                     <span class="font-black text-lg text-slate-900 block leading-tight">الشرطة العسكرية</span>
                     <span class="text-xs text-red-600 font-bold tracking-wide block">الضبط والربط والعمليات</span>
                 </div>
             </div>
 
+            <!-- قائمة التنقل -->
             <nav class="hidden md:flex items-center gap-4 text-xs font-bold text-slate-600">
                 <button onclick="switchView('home')" class="hover:text-red-600 transition">الرئيسية والكشوفات</button>
                 <button onclick="switchView('duty')" class="hover:text-red-600 transition">المناوبة والخفارات</button>
-                <button id="nav-member-btn" onclick="switchView('member-dashboard')" class="hidden text-slate-800 hover:text-red-600 transition">ملفي والتعاميم</button>
-                <button id="nav-admin-btn" onclick="switchView('admin')" class="hidden text-red-600 bg-red-50 px-3 py-1.5 rounded-xl border border-red-200 hover:bg-red-100 transition">
-                    <i class="fa-solid fa-user-tie ml-1"></i> غرفة القيادة والتحكم
-                </button>
+                <button onclick="switchView('uniforms-view')" class="hover:text-red-600 transition">🧥 ملابس القطاعات</button>
+                <button id="nav-member-btn" onclick="switchView('member-dashboard')" class="hidden hover:text-red-600 transition">لوحة الفرد</button>
+                <button id="nav-admin-btn" onclick="switchView('admin')" class="hidden text-red-600 font-black">غرفة القيادة والتحكم</button>
             </nav>
 
-            <div class="flex items-center gap-3">
-                <div id="auth-buttons" class="flex items-center gap-2"></div>
+            <!-- أزرار الحساب -->
+            <div id="auth-buttons" class="flex items-center gap-2">
+                <button onclick="switchView('login')" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow-md transition">تسجيل الدخول</button>
             </div>
         </div>
     </header>
 
-    <main class="flex-grow max-w-7xl mx-auto px-4 py-8 w-full space-y-8">
-        <!-- واجهة الرئيسية -->
-        <section id="view-home" class="space-y-8">
-            <div class="bg-white border border-slate-200 rounded-3xl p-8 md:p-10 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 border-r-8 border-r-red-600">
-                <div class="space-y-2 text-center md:text-right">
-                    <span class="px-3 py-1 bg-red-50 text-red-600 text-xs font-black rounded-full border border-red-100">بوابة العمليات المركزية</span>
-                    <h1 class="text-2xl md:text-4xl font-black text-slate-900">نظام إدارة الشرطة العسكرية</h1>
-                    <p class="text-sm text-slate-500 max-w-xl">متابعة دقيقة لساعات، دقائق وثواني الخدمة، مع إثباتات الخفارات بالفيديو.</p>
-                </div>
-                <div class="flex flex-wrap gap-3 justify-center">
-                    <button onclick="switchView('duty')" class="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-lg shadow-red-600/20 text-xs transition">
-                        <i class="fa-solid fa-clock ml-1"></i> تسجيل مناوبة / خفارة
-                    </button>
-                </div>
-            </div>
+    <!-- المحتوى الرئيسي -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 my-4">
 
+        <!-- 1. واجهة الرئيسية (الكشوفات والإحصائيات) -->
+        <div id="view-home" class="space-y-6">
+            <!-- شريط الإحصائيات -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between">
                     <div>
-                        <span class="text-xs text-slate-400 font-bold block">إجمالي القوة المعتمدة</span>
-                        <span id="stat-total-members" class="text-3xl font-black text-slate-900 mt-1 block">0</span>
+                        <span class="text-xs text-slate-400 font-bold block">إجمالي الأفراد</span>
+                        <h3 id="stat-total-members" class="text-2xl font-black text-slate-900 mt-1">0</h3>
                     </div>
-                    <div class="w-12 h-12 rounded-xl bg-red-50 text-red-600 flex items-center justify-center text-xl"><i class="fa-solid fa-users"></i></div>
+                    <div class="w-12 h-12 bg-red-50 text-red-600 rounded-2xl flex items-center justify-center text-lg font-bold"><i class="fa-solid fa-users"></i></div>
                 </div>
-                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between">
                     <div>
-                        <span class="text-xs text-slate-400 font-bold block">في الميدان حالياً</span>
-                        <span id="stat-on-duty" class="text-3xl font-black text-red-600 mt-1 block">0</span>
+                        <span class="text-xs text-slate-400 font-bold block">المتواجدون في الميدان</span>
+                        <h3 id="stat-on-duty" class="text-2xl font-black text-red-600 mt-1">0</h3>
                     </div>
-                    <div class="w-12 h-12 rounded-xl bg-red-50 text-red-600 flex items-center justify-center text-xl"><i class="fa-solid fa-walkie-talkie"></i></div>
+                    <div class="w-12 h-12 bg-red-50 text-red-600 rounded-2xl flex items-center justify-center text-lg font-bold"><i class="fa-solid fa-shield-halved"></i></div>
                 </div>
-                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between">
                     <div>
-                        <span class="text-xs text-slate-400 font-bold block">أعلى كود عسكري نشط</span>
-                        <span id="stat-highest-code" class="text-2xl font-black text-slate-900 mt-1 block">لا يوجد</span>
+                        <span class="text-xs text-slate-400 font-bold block">أعلى رتبة متواجدة</span>
+                        <h3 id="stat-highest-code" class="text-sm font-black text-slate-900 mt-1 truncate max-w-[180px]">لا يوجد</h3>
                     </div>
-                    <div class="w-12 h-12 rounded-xl bg-red-50 text-red-600 flex items-center justify-center text-xl"><i class="fa-solid fa-hashtag"></i></div>
+                    <div class="w-12 h-12 bg-slate-100 text-slate-700 rounded-2xl flex items-center justify-center text-lg font-bold"><i class="fa-solid fa-star"></i></div>
                 </div>
             </div>
 
-            <!-- الكشف العام (بدون أعمدة الوقت) -->
-            <div class="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
-                <div class="p-6 border-b border-slate-100 flex flex-wrap justify-between items-center gap-4">
-                    <div>
-                        <h2 class="text-lg font-black text-slate-900">الكشف العام للأفراد والأكواد العسكرية</h2>
-                        <p class="text-xs text-slate-400">مرتب حسب تسلسل الأكواد العسكرية مع توفر معرفات الديسكورد</p>
-                    </div>
-                    <input type="text" id="search-roster" onkeyup="renderPublicRoster()" placeholder="بحث بالاسم، الكود، أو الديسكورد..." class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs w-64 focus:outline-none focus:border-red-600">
+            <!-- جدول الكشف العام -->
+            <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+                <div class="p-5 border-b flex flex-col md:flex-row justify-between items-center gap-4">
+                    <h3 class="font-black text-slate-900 text-base">کشف أفراد وقادة الشرطة العسكرية</h3>
+                    <input type="text" id="search-roster" oninput="renderPublicRoster()" placeholder="ابحث بالاسم أو السيف أو الديسكورد..." class="w-full md:w-72 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold focus:outline-none focus:border-red-600">
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-right text-xs">
-                        <thead class="bg-slate-50 text-slate-500 border-b border-slate-200 font-bold">
+                        <thead class="bg-slate-50 text-slate-400 font-bold border-b">
                             <tr>
-                                <th class="p-4">الكود العسكري</th>
+                                <th class="p-4">الكود</th>
                                 <th class="p-4">الرتبة</th>
                                 <th class="p-4">الاسم</th>
-                                <th class="p-4">ديسكورد آيدي (Discord ID)</th>
+                                <th class="p-4">آيدي الديسكورد</th>
                                 <th class="p-4">المنصب</th>
-                                <th class="p-4">الحالة</th>
+                                <th class="p-4">الحالة الميدانية</th>
                             </tr>
                         </thead>
-                        <tbody id="public-roster-tbody" class="divide-y divide-slate-100"></tbody>
+                        <tbody id="public-roster-tbody" class="divide-y divide-slate-100 font-bold text-slate-700">
+                            <tr><td colspan="6" class="p-6 text-center text-slate-400">جاري تحميل البيانات...</td></tr>
+                        </tbody>
                     </table>
                 </div>
             </div>
-        </section>
+        </div>
 
-        <!-- تسجيل الدخول -->
-        <section id="view-login" class="hidden max-w-md mx-auto bg-white border border-slate-200 rounded-3xl p-8 shadow-lg space-y-6">
-            <div class="text-center space-y-2">
-                <div class="w-14 h-14 bg-red-600 text-white rounded-2xl mx-auto flex items-center justify-center text-2xl shadow-md">
-                    <i class="fa-solid fa-lock"></i>
+        <!-- 2. واجهة تسجيل الدخول -->
+        <div id="view-login" class="hidden max-w-md mx-auto my-12">
+            <div class="bg-white rounded-3xl p-8 shadow-xl border border-slate-100 space-y-6">
+                <div class="text-center space-y-1">
+                    <h2 class="text-xl font-black text-slate-900">تسجيل الدخول للنظام</h2>
+                    <p class="text-xs text-slate-400">أدخل بيانات الاعتماد الخاصة بك للوصول للخدمات</p>
                 </div>
-                <h2 class="text-xl font-black text-slate-900">تسجيل الدخول للنظام</h2>
-                <p class="text-xs text-slate-400">أدخل اسم المستخدم وكلمة المرور العسكرية</p>
-            </div>
-            <form onsubmit="handleLogin(event)" class="space-y-4">
-                <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1">اسم المستخدم</label>
-                    <input type="text" id="login-user" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-red-600">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1">كلمة المرور</label>
-                    <input type="password" id="login-pass" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-red-600">
-                </div>
-                <button type="submit" class="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition text-xs shadow-md">تسجيل الدخول</button>
-            </form>
-        </section>
-
-        <!-- المناوبة -->
-        <section id="view-duty" class="hidden max-w-xl mx-auto bg-white border border-slate-200 rounded-3xl p-8 shadow-lg text-center space-y-6">
-            <div id="duty-content"></div>
-        </section>
-
-        <!-- لوحة الفرد -->
-        <section id="view-member-dashboard" class="hidden max-w-4xl mx-auto space-y-6">
-            <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex flex-wrap items-center justify-between gap-4">
-                <div class="flex items-center gap-4">
-                    <div class="w-16 h-16 rounded-2xl bg-red-50 border border-red-200 flex items-center justify-center text-red-600 font-black text-xl">
-                        <i class="fa-solid fa-user-shield"></i>
+                <form onsubmit="handleLogin(event)" class="space-y-4 text-xs font-bold">
+                    <div class="space-y-1">
+                        <label class="text-slate-600">اسم المستخدم (اليوزر)</label>
+                        <input type="text" id="login-user" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600">
                     </div>
+                    <div class="space-y-1">
+                        <label class="text-slate-600">كلمة المرور</label>
+                        <input type="password" id="login-pass" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600">
+                    </div>
+                    <button type="submit" class="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-black rounded-xl shadow-md transition">دخول</button>
+                </form>
+                <button onclick="switchView('home')" class="w-full text-center text-xs text-slate-400 hover:text-slate-600 font-bold">العودة للرئيسية</button>
+            </div>
+        </div>
+
+        <!-- 3. واجهة المناوبة -->
+        <div id="view-duty" class="hidden max-w-xl mx-auto my-12">
+            <div class="bg-white rounded-3xl p-8 shadow-xl border border-slate-100 text-center space-y-6">
+                <div class="w-16 h-16 bg-red-50 text-red-600 rounded-3xl mx-auto flex items-center justify-center text-2xl font-bold"><i class="fa-solid fa-clock"></i></div>
+                <h2 class="text-xl font-black text-slate-900">نظام تسجيل المناوبة والخدمة</h2>
+                <div id="duty-content">
+                    <!-- سيتم تحميل بيانات المناوبة هنا -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. واجهة لوحة الفرد -->
+        <div id="view-member-dashboard" class="hidden max-w-4xl mx-auto space-y-6">
+            <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
+                <div>
+                    <span id="member-dash-code" class="px-3 py-1 bg-red-600 text-white font-black rounded-lg text-xs">سيف --</span>
+                    <h2 id="member-dash-name" class="text-xl font-black text-slate-900 mt-2">-- / --</h2>
+                    <p id="member-dash-meta" class="text-xs text-slate-400 mt-1">--</p>
+                </div>
+                <button onclick="switchView('duty')" class="px-4 py-2.5 bg-slate-900 text-white font-bold rounded-xl text-xs">إدارة المناوبة</button>
+            </div>
+
+            <!-- أمر خفارة نشط إن وجد -->
+            <div id="member-guard-duty-box" class="hidden bg-red-50 border border-red-200 rounded-3xl p-6 space-y-4">
+                <!-- سيتم ملؤها ديناميكياً -->
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 space-y-4">
+                    <h3 class="font-black text-slate-900 text-sm border-b pb-2">سجل التحذيرات والعقوبات</h3>
+                    <div id="member-warnings-list" class="space-y-2"></div>
+                </div>
+                <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 space-y-4">
+                    <h3 class="font-black text-slate-900 text-sm border-b pb-2">التعاميم والتوجيهات العسكرية</h3>
+                    <div id="member-announcements-list" class="space-y-3"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. واجهة ملابس القطاعات -->
+        <div id="view-uniforms-view" class="hidden max-w-6xl mx-auto space-y-6">
+            <div class="bg-white rounded-3xl p-6 shadow-xl border border-slate-100 space-y-6">
+                <div class="border-b pb-4 flex justify-between items-center">
                     <div>
-                        <span id="member-dash-code" class="px-2.5 py-0.5 bg-red-600 text-white text-[11px] font-black rounded-lg"></span>
-                        <h2 id="member-dash-name" class="text-lg font-black text-slate-900 mt-1"></h2>
-                        <p id="member-dash-meta" class="text-xs text-slate-500 font-bold"></p>
+                        <h2 class="text-xl font-black text-slate-900">🧥 ملابس وأكواد القطاعات الأمنية والشرطة العسكرية</h2>
+                        <p class="text-xs text-slate-500 mt-1">تصفح أكواد الأزياد العسكرية الرسمية للقطاعات المختلفة.</p>
                     </div>
+                    <button onclick="switchView('home')" class="px-4 py-2 bg-slate-100 rounded-xl font-bold text-xs">العودة للرئيسية</button>
+                </div>
+                <div id="uniforms-content-area">
+                    <!-- سيتم تحميل الأقسام هنا تلقائياً -->
                 </div>
             </div>
+        </div>
 
-            <!-- رفع فيديو الخفارة (لا يظهر إلا إذا وُجد أمر خفارة نشط) -->
-            <div id="member-guard-duty-box" class="hidden bg-white border-2 border-red-600 rounded-3xl p-6 shadow-sm space-y-3"></div>
-
-            <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
-                <h3 class="font-black text-slate-900 text-base border-b border-slate-100 pb-3 flex items-center gap-2">
-                    <i class="fa-solid fa-triangle-exclamation text-red-600"></i> سجل التحذيرات الإدارية الخاصة بك
-                </h3>
-                <div id="member-warnings-list" class="space-y-2"></div>
-            </div>
-
-            <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
-                <h3 class="font-black text-slate-900 text-base border-b border-slate-100 pb-3 flex items-center gap-2">
-                    <i class="fa-solid fa-bullhorn text-red-600"></i> التعاميم والأوامر العسكرية
-                </h3>
-                <div id="member-announcements-list" class="space-y-3"></div>
-            </div>
-        </section>
-
-        <!-- غرفة القيادة والتحكم -->
-        <section id="view-admin" class="hidden space-y-6">
-            <div class="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm flex flex-wrap justify-between items-center gap-4">
+        <!-- 6. غرفة القيادة والتحكم (الإدارة) -->
+        <div id="view-admin" class="hidden space-y-6">
+            <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
                 <div>
-                    <h2 class="text-lg font-black text-slate-900">غرفة القيادة والتحكم</h2>
-                    <p id="current-role-badge" class="text-xs font-bold text-red-600"></p>
+                    <h2 class="text-xl font-black text-slate-900">غرفة القيادة والتحكم والعمليات</h2>
+                    <p id="current-role-badge" class="text-xs text-red-600 font-bold mt-1">المنصب: قائد عام</p>
                 </div>
                 <div id="admin-tabs-container" class="flex flex-wrap gap-2"></div>
             </div>
 
-            <!-- تبويب: تعديل ملف القائد العام -->
-            <div id="tab-commander-profile" class="admin-pane hidden max-w-xl mx-auto bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
-                <h3 class="font-black text-sm text-slate-900 border-b border-slate-100 pb-3">تعديل ملفي الشخصي (القائد العام)</h3>
-                <form onsubmit="handleUpdateCommanderProfile(event)" class="space-y-4">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">الرتبة العسكرية</label>
-                        <select id="commander-edit-rank" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold"></select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">الكود العسكري (رقم سيف)</label>
-                        <input type="number" id="commander-edit-code" min="1" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs">
-                    </div>
-                    <button type="submit" class="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs shadow-md">حفظ التغييرات الشخصية</button>
-                </form>
-            </div>
-
-            <!-- تبويب: إضافة فرد -->
-            <div id="tab-add-member" class="admin-pane max-w-2xl mx-auto bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
-                <h3 class="font-black text-sm text-slate-900 border-b border-slate-100 pb-3">إضافة فرد جديد وإنشاء حساب</h3>
-                <form id="admin-add-member-form" onsubmit="handleAdminCreateMember(event)" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">الاسم الكامل</label>
-                        <input type="text" id="add-m-name" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">الرتبة العسكرية</label>
-                        <select id="add-m-rank" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold"></select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">الكود العسكري</label>
-                        <div class="flex gap-2">
-                            <select id="add-m-code-mode" onchange="toggleCustomCodeInput('add-m-code-mode', 'add-m-code-num')" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold">
-                                <option value="auto">تلقائي</option>
-                                <option value="custom">اختياري</option>
-                            </select>
-                            <input type="number" id="add-m-code-num" min="1" placeholder="رقم سيف" class="hidden w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs">
+            <!-- التبويبات الإدارية -->
+            <div class="bg-white rounded-3xl shadow-sm border border-slate-100 p-6">
+                
+                <!-- 1. تعديل ملف القائد العام -->
+                <div id="tab-commander-profile" class="admin-pane hidden space-y-4">
+                    <h3 class="font-black text-slate-900 text-sm border-b pb-2">تعديل ملف القائد العام</h3>
+                    <form onsubmit="handleUpdateCommanderProfile(event)" class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-bold">
+                        <div class="space-y-1">
+                            <label>الرتبة العسكرية</label>
+                            <select id="commander-edit-rank" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-red-600"></select>
                         </div>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">ديسكورد آيدي (Discord ID)</label>
-                        <input type="text" id="add-m-discord" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">اسم المستخدم</label>
-                        <input type="text" id="add-m-username" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">كلمة المرور</label>
-                        <input type="password" id="add-m-password" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs">
-                    </div>
-                    <div class="md:col-span-2">
-                        <button type="submit" class="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs shadow-md">إضافة الفرد وإنشاء الحساب</button>
-                    </div>
-                </form>
-            </div>
-
-            <!-- تبويب: إدارة الأفراد -->
-            <div id="tab-members" class="admin-pane hidden bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
-                <div class="p-5 border-b border-slate-100 font-black text-sm">إدارة الأفراد، الملاحظات السرية، الأكواد، وتعديل بيانات الاعتماد</div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-right text-xs">
-                        <thead class="bg-slate-50 text-slate-500 border-b border-slate-200">
-                            <tr>
-                                <th class="p-4">الكود</th>
-                                <th class="p-4">الرتبة والاسم</th>
-                                <th class="p-4">ديسكورد آيدي</th>
-                                <th class="p-4">الملاحظة السرية</th>
-                                <th class="p-4">رصيد الوقت</th>
-                                <th class="p-4">التحكم والتعديل</th>
-                            </tr>
-                        </thead>
-                        <tbody id="admin-members-tbody" class="divide-y divide-slate-100"></tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- تبويب: الجرد والساعات (مع لوحة المتصدرين وتعديل الساعات) -->
-            <div id="tab-inventory" class="admin-pane hidden space-y-6">
-                <div id="inventory-top-scorer-card" class="bg-gradient-to-l from-red-600 to-red-800 text-white rounded-3xl p-6 shadow-lg flex items-center justify-between">
-                    <div>
-                        <span class="px-3 py-1 bg-white/20 text-white text-[10px] font-black rounded-full">🏆 بطل الأسبوع (أعلى رصيد ساعات)</span>
-                        <h3 id="top-scorer-name" class="text-xl font-black mt-2">جاري التحميل...</h3>
-                        <p id="top-scorer-time" class="text-xs font-mono opacity-90 mt-1"></p>
-                    </div>
-                    <div class="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center text-3xl">⭐</div>
-                </div>
-
-                <div class="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm p-6 space-y-4">
-                    <div class="flex justify-between items-center border-b pb-3">
-                        <div>
-                            <h3 class="font-black text-sm text-slate-900">سجل الجرد الميداني وتعديل الساعات</h3>
-                            <p class="text-xs text-slate-400">إضافة أو خصم أو ضبط ساعات العمل للأفراد بدقة</p>
+                        <div class="space-y-1">
+                            <label>رقم كود السيف</label>
+                            <input type="number" id="commander-edit-code" min="1" required class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-red-600">
                         </div>
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-right text-xs">
-                            <thead class="bg-slate-50 text-slate-500 border-b border-slate-200">
-                                <tr>
-                                    <th class="p-4">الكود</th>
-                                    <th class="p-4">الرتبة والاسم</th>
-                                    <th class="p-4">رصيد الوقت الحالي</th>
-                                    <th class="p-4">إدارة وتعديل الوقت</th>
-                                </tr>
-                            </thead>
-                            <tbody id="admin-inventory-tbody" class="divide-y divide-slate-100"></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- تبويب: إدارة التحذيرات -->
-            <div id="tab-warnings" class="admin-pane hidden bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
-                <h3 class="font-black text-sm text-slate-900">صفحة إدارة التحذيرات الإدارية</h3>
-                <div id="admin-warnings-management-list" class="space-y-3"></div>
-            </div>
-
-            <!-- تبويب: المفصولين -->
-            <div id="tab-dismissed" class="admin-pane hidden bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
-                <div class="p-5 border-b border-slate-100 font-black text-sm flex justify-between items-center">
-                    <span>أرشيف الأفراد المفصولين</span>
-                    <button onclick="clearAllDismissed()" class="px-3 py-1.5 bg-red-600 text-white rounded-xl text-xs font-bold shadow">حذف الكل من المفصولين</button>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-right text-xs">
-                        <thead class="bg-slate-50 text-slate-500 border-b border-slate-200">
-                            <tr>
-                                <th class="p-4">الاسم الأخير</th>
-                                <th class="p-4">الرتبة السابقة</th>
-                                <th class="p-4">ديسكورد آيدي</th>
-                                <th class="p-4">تاريخ أو سبب الفصل</th>
-                                <th class="p-4">إجراء الحذف</th>
-                            </tr>
-                        </thead>
-                        <tbody id="admin-dismissed-tbody" class="divide-y divide-slate-100"></tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- تبويب: الخفارات -->
-            <div id="tab-guards" class="admin-pane hidden space-y-6">
-                <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
-                    <h3 class="font-black text-sm text-slate-900">تكليف فرد بخفارة (مع خيار الملاحظة)</h3>
-                    <form onsubmit="handleAssignGuardDuty(event)" class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <select id="guard-member-select" required class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold"></select>
-                        <input type="text" id="guard-location" placeholder="موقع الخفارة (مثال: البوابة الشرقية)" required class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs">
-                        <input type="number" id="guard-duration-mins" placeholder="المدة بالدقائق" min="1" required class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs">
-                        <input type="text" id="guard-note" placeholder="ملاحظة الخفارة (اختياري)" class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs">
-                        <div class="md:col-span-2">
-                            <button type="submit" class="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs">تكليف بالخفارة وإرسال الإشعار</button>
-                        </div>
+                        <button type="submit" class="md:col-span-2 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl shadow">حفظ التعديلات الشخصية</button>
                     </form>
                 </div>
 
-                <div class="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
-                    <div class="p-5 border-b border-slate-100 font-black text-sm">سجل الخفارات وفيديوهات إثبات الإنجاز</div>
+                <!-- 2. إضافة فرد -->
+                <div id="tab-add-member" class="admin-pane hidden space-y-4">
+                    <h3 class="font-black text-slate-900 text-sm border-b pb-2">إضافة فرد جديد للنظام</h3>
+                    <form id="admin-add-member-form" onsubmit="handleAdminCreateMember(event)" class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-bold">
+                        <div class="space-y-1"><label>اسم الفرد الثنائي/الرباعي</label><input type="text" id="add-m-name" required class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3"></div>
+                        <div class="space-y-1"><label>الرتبة العسكرية</label><select id="add-m-rank" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3"></select></div>
+                        <div class="space-y-1">
+                            <label>تحديد رقم السيف</label>
+                            <select id="add-m-code-mode" onchange="toggleCustomCodeInput('add-m-code-mode', 'add-m-custom-code-wrap')" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3">
+                                <option value="auto">تلقائي تتابعي (يبدأ من 40)</option>
+                                <option value="custom">مخصص يدوي</option>
+                            </select>
+                        </div>
+                        <div id="add-m-custom-code-wrap" class="space-y-1 hidden"><label>رقم السيف المخصص</label><input type="number" id="add-m-code-num" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3"></div>
+                        <div class="space-y-1"><label>آيدي الديسكورد</label><input type="text" id="add-m-discord" required class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3"></div>
+                        <div class="space-y-1"><label>اسم المستخدم (اليوزر للدخول)</label><input type="text" id="add-m-username" required class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3"></div>
+                        <div class="space-y-1"><label>كلمة المرور</label><input type="password" id="add-m-password" required class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3"></div>
+                        <button type="submit" class="md:col-span-2 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl shadow">إضافة الفرد وتفعيل حسابه</button>
+                    </form>
+                </div>
+
+                <!-- 3. إدارة الأفراد -->
+                <div id="tab-members" class="admin-pane hidden space-y-4">
+                    <h3 class="font-black text-slate-900 text-sm border-b pb-2">قائمة إدارة الأفراد المسجلين</h3>
                     <div class="overflow-x-auto">
                         <table class="w-full text-right text-xs">
-                            <thead class="bg-slate-50 text-slate-500 border-b border-slate-200">
+                            <thead class="bg-slate-50 text-slate-400 font-bold border-b">
                                 <tr>
-                                    <th class="p-4">الفرد</th>
-                                    <th class="p-4">الموقع والملاحظة</th>
-                                    <th class="p-4">المكلف (المسؤول)</th>
-                                    <th class="p-4">الحالة وفيديو إثبات الخفارة</th>
-                                    <th class="p-4">إجراء</th>
+                                    <th class="p-3">الكود</th>
+                                    <th class="p-3">الرتبة والاسم</th>
+                                    <th class="p-3">الديسكورد</th>
+                                    <th class="p-3">ملاحظة سرية</th>
+                                    <th class="p-3">ساعات العمل</th>
+                                    <th class="p-3">الإجراءات</th>
                                 </tr>
                             </thead>
-                            <tbody id="admin-guards-tbody" class="divide-y divide-slate-100"></tbody>
+                            <tbody id="admin-members-tbody" class="divide-y divide-slate-100 font-bold text-slate-700"></tbody>
                         </table>
                     </div>
                 </div>
-            </div>
 
-            <!-- تبويب: قائمة المسؤولين -->
-            <div id="tab-permissions-overview" class="admin-pane hidden space-y-4">
-                <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
-                    <h3 class="font-black text-sm text-slate-900 border-b border-slate-100 pb-3">قائمة المسؤولين وصلاحياتهم الحالية</h3>
+                <!-- 4. الجرد والساعات -->
+                <div id="tab-inventory" class="admin-pane hidden space-y-6">
+                    <div class="p-6 bg-red-50 border border-red-200 rounded-2xl flex justify-between items-center">
+                        <div>
+                            <span class="text-xs text-red-600 font-bold block">العنصر الأكثر تفاعلاً وانضباطاً (الأول على القطاع)</span>
+                            <h3 id="top-scorer-name" class="text-base font-black text-slate-900 mt-1">--</h3>
+                        </div>
+                        <div class="text-left">
+                            <span id="top-scorer-time" class="text-sm font-black text-red-600 font-mono">--</span>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-right text-xs">
+                            <thead class="bg-slate-50 text-slate-400 font-bold border-b">
+                                <tr>
+                                    <th class="p-3">الكود</th>
+                                    <th class="p-3">العسكري</th>
+                                    <th class="p-3">رصيد الساعات الفعلي</th>
+                                    <th class="p-3">تعديل رصيد الساعات</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-inventory-tbody" class="divide-y divide-slate-100 font-bold text-slate-700"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 5. التحذيرات -->
+                <div id="tab-warnings" class="admin-pane hidden space-y-4">
+                    <h3 class="font-black text-slate-900 text-sm border-b pb-2">سجل التحذيرات والعقوبات المسجلة</h3>
+                    <div id="admin-warnings-management-list" class="space-y-3"></div>
+                </div>
+
+                <!-- 6. المفصولين -->
+                <div id="tab-dismissed" class="admin-pane hidden space-y-4">
+                    <div class="flex justify-between items-center border-b pb-2">
+                        <h3 class="font-black text-slate-900 text-sm">أرشيف الأفراد المفصولين</h3>
+                        <button onclick="clearAllDismissed()" class="px-3 py-1 bg-rose-50 text-rose-600 rounded-xl font-bold text-xs">تفريغ الأرشيف بالكامل</button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-right text-xs">
+                            <thead class="bg-slate-50 text-slate-400 font-bold border-b">
+                                <tr>
+                                    <th class="p-3">الاسم</th>
+                                    <th class="p-3">الرتبة السابقة</th>
+                                    <th class="p-3">الديسكورد</th>
+                                    <th class="p-3">تاريخ الفصل</th>
+                                    <th class="p-3">إجراء</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-dismissed-tbody" class="divide-y divide-slate-100 font-bold text-slate-700"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 7. الخفارات -->
+                <div id="tab-guards" class="admin-pane hidden space-y-6">
+                    <form onsubmit="handleAssignGuardDuty(event)" class="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-3 text-xs font-bold">
+                        <h4 class="font-black text-slate-900">إصدار أمر خفارة رسمي جديد</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <select id="guard-member-select" required class="bg-white border border-slate-200 rounded-xl p-3"></select>
+                            <input type="text" id="guard-location" placeholder="موقع الخفارة (مثال: البوابة الرئيسية)" required class="bg-white border border-slate-200 rounded-xl p-3">
+                            <input type="number" id="guard-duration-mins" placeholder="المدة بالدقائق" required class="bg-white border border-slate-200 rounded-xl p-3">
+                            <input type="text" id="guard-note" placeholder="تعليمات أو ملاحظات إضافية" class="bg-white border border-slate-200 rounded-xl p-3">
+                        </div>
+                        <button type="submit" class="w-full py-3 bg-red-600 text-white rounded-xl shadow">إرسال أمر الخفارة للفرد</button>
+                    </form>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-right text-xs">
+                            <thead class="bg-slate-50 text-slate-400 font-bold border-b">
+                                <tr>
+                                    <th class="p-3">العسكري</th>
+                                    <th class="p-3">الموقع والتعليمات</th>
+                                    <th class="p-3">المرسل</th>
+                                    <th class="p-3">الحالة (الفيديو)</th>
+                                    <th class="p-3">إجراء</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-guards-tbody" class="divide-y divide-slate-100 font-bold text-slate-700"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 8. المناصب والصلاحيات -->
+                <div id="tab-roles" class="admin-pane hidden space-y-6">
+                    <form onsubmit="handleCommanderCreateLeader(event)" class="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-4 text-xs font-bold">
+                        <h4 class="font-black text-slate-900 text-sm">تعيين مسؤول جديد ومنحه صلاحيات إدارية</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <input type="text" id="lead-role-type" placeholder="مسمى المنصب (مثال: مساعد الشؤون الإدارية)" required class="bg-white border rounded-xl p-3">
+                            <input type="text" id="lead-name" placeholder="اسم المسؤول" required class="bg-white border rounded-xl p-3">
+                            <select id="lead-rank" class="lead-rank-select bg-white border rounded-xl p-3"></select>
+                            <input type="number" id="lead-code" placeholder="رقم كود السيف المخصص" required class="bg-white border rounded-xl p-3">
+                            <input type="text" id="lead-discord" placeholder="آيدي الديسكورد" required class="bg-white border rounded-xl p-3">
+                            <input type="text" id="lead-username" placeholder="يوزر الدخول" required class="bg-white border rounded-xl p-3">
+                            <input type="password" id="lead-password" placeholder="كلمة المرور" required class="bg-white border rounded-xl p-3">
+                        </div>
+                        <div class="border-t pt-3 space-y-2">
+                            <span class="text-slate-500 block">حدد الصلاحيات الممنوحة للمسؤول:</span>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                <label class="flex items-center gap-2 p-2 bg-white rounded-xl"><input type="checkbox" id="perm-add-member"> إضافة أفراد</label>
+                                <label class="flex items-center gap-2 p-2 bg-white rounded-xl"><input type="checkbox" id="perm-edit-name"> تعديل الأسماء</label>
+                                <label class="flex items-center gap-2 p-2 bg-white rounded-xl"><input type="checkbox" id="perm-edit-rank"> تعديل الرتب</label>
+                                <label class="flex items-center gap-2 p-2 bg-white rounded-xl"><input type="checkbox" id="perm-dismiss"> فصل الأفراد</label>
+                                <label class="flex items-center gap-2 p-2 bg-white rounded-xl"><input type="checkbox" id="perm-warn"> التحذيرات</label>
+                                <label class="flex items-center gap-2 p-2 bg-white rounded-xl"><input type="checkbox" id="perm-guards"> إدارة الخفارات</label>
+                                <label class="flex items-center gap-2 p-2 bg-white rounded-xl"><input type="checkbox" id="perm-notes"> الملاحظات السرية</label>
+                                <label class="flex items-center gap-2 p-2 bg-white rounded-xl"><input type="checkbox" id="perm-inventory"> عرض الجرد</label>
+                                <label class="flex items-center gap-2 p-2 bg-white rounded-xl"><input type="checkbox" id="perm-edit-hours"> تعديل الساعات</label>
+                                <label class="flex items-center gap-2 p-2 bg-white rounded-xl"><input type="checkbox" id="perm-announce"> التعاميم</label>
+                                <label class="flex items-center gap-2 p-2 bg-white rounded-xl"><input type="checkbox" id="perm-edit-credentials"> اليوزر والباس</label>
+                                <label class="flex items-center gap-2 p-2 bg-white rounded-xl"><input type="checkbox" id="perm-view-logs"> سجل العمليات</label>
+                            </div>
+                        </div>
+                        <button type="submit" class="w-full py-3 bg-red-600 text-white rounded-xl shadow">اعتماد المسؤول وتثبيت الصلاحيات</button>
+                    </form>
+                </div>
+
+                <!-- 9. قائمة المسؤولين والصلاحيات -->
+                <div id="tab-permissions-overview" class="admin-pane hidden space-y-4">
+                    <h3 class="font-black text-slate-900 text-sm border-b pb-2">قائمة المسؤولين وصلاحياتهم الحالية</h3>
                     <div id="admin-permissions-overview-container" class="space-y-3"></div>
                 </div>
-            </div>
 
-            <!-- تبويب: المناصب والصلاحيات -->
-            <div id="tab-roles" class="admin-pane hidden space-y-6">
-                <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
-                    <h3 class="font-black text-base text-slate-950 border-b border-slate-100 pb-3">تعيين منصب قيادي وتحديد الصلاحيات الكاملة</h3>
-                    <form onsubmit="handleCommanderCreateLeader(event)" class="space-y-6">
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
-                                <label class="block text-xs font-bold text-slate-700 mb-1">نوع المنصب</label>
-                                <select id="lead-role-type" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold">
-                                    <option value="نائب الشرطة العسكرية">نائب الشرطة العسكرية</option>
-                                    <option value="مسؤول الشرطة العسكرية">مسؤول الشرطة العسكرية</option>
-                                    <option value="مسؤول أفراد الشرطة العسكرية">مسؤول أفراد الشرطة العسكرية</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-700 mb-1">الاسم</label>
-                                <input type="text" id="lead-name" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-700 mb-1">الرتبة</label>
-                                <select id="lead-rank" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold lead-rank-select"></select>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-700 mb-1">الكود العسكري (رقم سيف يدوياً)</label>
-                                <input type="number" id="lead-code" min="1" placeholder="أدخل رقم السيف يدوياً" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-700 mb-1">ديسكورد آيدي</label>
-                                <input type="text" id="lead-discord" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-700 mb-1">اسم المستخدم</label>
-                                <input type="text" id="lead-username" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs">
-                            </div>
-                            <div class="md:col-span-3">
-                                <label class="block text-xs font-bold text-slate-700 mb-1">كلمة المرور</label>
-                                <input type="password" id="lead-password" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs">
-                            </div>
-                        </div>
+                <!-- 10. سجل العمليات (Log) -->
+                <div id="tab-logs" class="admin-pane hidden space-y-4">
+                    <h3 class="font-black text-slate-900 text-sm border-b pb-2">سجل العمليات والتحركات الإدارية (Log)</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-right text-xs">
+                            <thead class="bg-slate-50 text-slate-400 font-bold border-b">
+                                <tr>
+                                    <th class="p-3">الوقت والتاريخ</th>
+                                    <th class="p-3">المنفذ</th>
+                                    <th class="p-3">الحدث / العملية</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-audit-logs-tbody" class="divide-y divide-slate-100 font-bold text-slate-700"></tbody>
+                        </table>
+                    </div>
+                </div>
 
-                        <div class="p-5 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
-                            <h4 class="font-black text-xs text-red-600 uppercase tracking-wider">صلاحيات هذا المسؤول في غرفة القيادة:</h4>
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs font-bold text-slate-700">
-                                <label class="flex items-center gap-2 cursor-pointer p-2 bg-white rounded-xl border border-slate-100"><input type="checkbox" id="perm-add-member" class="accent-red-600 w-4 h-4"> إضافة فرد جديد</label>
-                                <label class="flex items-center gap-2 cursor-pointer p-2 bg-white rounded-xl border border-slate-100"><input type="checkbox" id="perm-edit-name" class="accent-red-600 w-4 h-4"> تعديل أسماء الأفراد والأكواد</label>
-                                <label class="flex items-center gap-2 cursor-pointer p-2 bg-white rounded-xl border border-slate-100"><input type="checkbox" id="perm-edit-rank" class="accent-red-600 w-4 h-4"> ترقية الأفراد</label>
-                                <label class="flex items-center gap-2 cursor-pointer p-2 bg-white rounded-xl border border-slate-100"><input type="checkbox" id="perm-dismiss" class="accent-red-600 w-4 h-4"> فصل الأفراد</label>
-                                <label class="flex items-center gap-2 cursor-pointer p-2 bg-white rounded-xl border border-slate-100"><input type="checkbox" id="perm-warn" class="accent-red-600 w-4 h-4"> التحذيرات</label>
-                                <label class="flex items-center gap-2 cursor-pointer p-2 bg-white rounded-xl border border-slate-100"><input type="checkbox" id="perm-guards" class="accent-red-600 w-4 h-4"> الخفارات</label>
-                                <label class="flex items-center gap-2 cursor-pointer p-2 bg-white rounded-xl border border-slate-100"><input type="checkbox" id="perm-notes" class="accent-red-600 w-4 h-4"> الملاحظات السرية</label>
-                                <label class="flex items-center gap-2 cursor-pointer p-2 bg-white rounded-xl border border-slate-100"><input type="checkbox" id="perm-inventory" class="accent-red-600 w-4 h-4"> 📊 صلاحية الجرد والساعات</label>
-                                <label class="flex items-center gap-2 cursor-pointer p-2 bg-white rounded-xl border border-slate-100"><input type="checkbox" id="perm-announce" class="accent-red-600 w-4 h-4"> التعاميم والتنبيهات</label>
-                                <label class="flex items-center gap-2 cursor-pointer p-2 bg-white rounded-xl border border-slate-100"><input type="checkbox" id="perm-edit-credentials" class="accent-red-600 w-4 h-4"> اليوزر والباسورد</label>
-                                <label class="flex items-center gap-2 cursor-pointer p-2 bg-white rounded-xl border border-slate-100"><input type="checkbox" id="perm-view-logs" class="accent-red-600 w-4 h-4"> سجل العمليات (Log)</label>
-                            </div>
-                        </div>
-
-                        <button type="submit" class="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs shadow-md">تعيين المنصب ومنح الصلاحيات</button>
+                <!-- 11. نشر التعاميم -->
+                <div id="tab-announce" class="admin-pane hidden space-y-4">
+                    <h3 class="font-black text-slate-900 text-sm border-b pb-2">نشر تعميم أو تنبيه عسكري عام</h3>
+                    <form onsubmit="handlePostAnnouncement(event)" class="space-y-3 text-xs font-bold">
+                        <input type="text" id="ann-title" placeholder="عنوان التعميم" required class="w-full bg-slate-50 border rounded-xl p-3">
+                        <textarea id="ann-body" rows="4" placeholder="نص التعميم العسكري..." required class="w-full bg-slate-50 border rounded-xl p-3"></textarea>
+                        <button type="submit" class="w-full py-3 bg-red-600 text-white rounded-xl shadow">نشر التعميم لكافة الأفراد</button>
                     </form>
+                    <div class="pt-4 border-t space-y-3">
+                        <h4 class="font-black text-slate-900 text-xs">التعاميم النشطة حالياً:</h4>
+                        <div id="admin-announcements-manage-list" class="space-y-2"></div>
+                    </div>
                 </div>
-            </div>
 
-            <!-- تبويب: التعاميم -->
-            <div id="tab-announce" class="admin-pane hidden max-w-2xl mx-auto space-y-6">
-                <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
-                    <h3 class="font-black text-sm text-slate-900 border-b border-slate-100 pb-3">نشر تعميم أو أمر عسكري</h3>
-                    <form onsubmit="handlePostAnnouncement(event)" class="space-y-4">
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 mb-1">عنوان التعميم</label>
-                            <input type="text" id="ann-title" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 mb-1">محتوى التعميم</label>
-                            <textarea id="ann-body" rows="4" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs"></textarea>
-                        </div>
-                        <button type="submit" class="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs shadow-md">نشر التعميم رسمياً</button>
-                    </form>
-                </div>
-                <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
-                    <h3 class="font-black text-sm text-slate-900 border-b border-slate-100 pb-3">التعاميم النشطة (مع خيار الحذف)</h3>
-                    <div id="admin-announcements-manage-list" class="space-y-3"></div>
-                </div>
             </div>
+        </div>
 
-            <!-- تبويب: سجل العمليات -->
-            <div id="tab-logs" class="admin-pane hidden bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
-                <div class="p-5 border-b border-slate-100 font-black text-sm">سجل العمليات والتحركات الإدارية (Log)</div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-right text-xs">
-                        <thead class="bg-slate-50 text-slate-500 border-b border-slate-200">
-                            <tr>
-                                <th class="p-4">التاريخ والوقت</th>
-                                <th class="p-4">المرسل / المسؤول</th>
-                                <th class="p-4">تفاصيل العملية</th>
-                            </tr>
-                        </thead>
-                        <tbody id="admin-audit-logs-tbody" class="divide-y divide-slate-100"></tbody>
-                    </table>
-                </div>
-            </div>
-        </section>
     </main>
 
-    <footer class="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-400 font-semibold">
-        جميع الحقوق محفوظة © قيادة الشرطة العسكرية
+    <!-- الفوتر السفلي -->
+    <footer class="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-400 font-bold">
+        <p>جميع الحقوق محفوظة © نظام الشرطة العسكرية 2026</p>
     </footer>
 
+    <!-- ربط ملف JavaScript الرئيسي -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
