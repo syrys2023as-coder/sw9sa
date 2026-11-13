@@ -80,7 +80,7 @@ db.collection("military_police").doc("system_data").onSnapshot((doc) => {
             if (currentUser.id === 'root_commander') {
                 if (data.rootCommanderProfile) {
                     currentUser.rank = data.rootCommanderProfile.rank || currentUser.rank;
-                    currentUser.codeNumber = 1; // القائد العام دائماً سيف 1
+                    currentUser.codeNumber = 1;
                     currentUser.totalSeconds = data.rootCommanderProfile.totalSeconds || currentUser.totalSeconds;
                 }
             } else {
@@ -106,7 +106,7 @@ function saveSystemData() {
         systemNotifications,
         rootCommanderProfile: currentUser && currentUser.id === 'root_commander' ? {
             rank: currentUser.rank,
-            codeNumber: 1, // تثبيت كود القائد العام على 1
+            codeNumber: 1,
             totalSeconds: currentUser.totalSeconds || 0,
             onDuty: currentUser.onDuty || false
         } : null,
@@ -116,7 +116,7 @@ function saveSystemData() {
 
 function getNextSwordCode() {
     const approved = members.filter(m => m.codeNumber);
-    let nextNum = 2; // يبدأ ترقيم الأفراد من 2 فصاعداً ليبقى القائد العام هو سيف 1
+    let nextNum = 2;
     while (approved.some(m => m.codeNumber === nextNum) && nextNum <= 1000) {
         nextNum++;
     }
@@ -184,7 +184,7 @@ window.switchAdminTab = function(tabId, btnEl) {
         return;
     }
     if (tabId === 'tab-leaderboard' && !checkAdminPerm('viewLeaderboard') && currentUser?.id !== 'root_commander') {
-        showAlert('ليس لديك صلاحية الاطلاع على صفحة أوقات الجرد', true);
+        showAlert('ليس لديك صلاحية الاطلاع على صفحة أوقات الجرد وأعلى الساعات', true);
         return;
     }
 
@@ -228,15 +228,15 @@ window.handleLogin = function(e) {
                 rank: savedRank,
                 discordId: '0000000000',
                 positionTitle: 'قائد الشرطة العسكرية',
-                codeNumber: 1, // كود ثابت سيف 1 للقائد العام
+                codeNumber: 1,
                 totalSeconds: savedTotalSecs,
                 adminNote: '',
                 onDuty: savedOnDuty
             };
             showAlert('تم تسجيل الدخول كقائد عام بنجاح');
             refreshAllUI();
-            switchAdminTab('tab-commander-profile', document.getElementById('btn-tab-commander-profile'));
-            switchView('admin');
+            // التوجيه المباشر إلى الصفحة الرئيسية فور تسجيل الدخول
+            switchView('home');
         });
         return;
     }
@@ -252,8 +252,8 @@ window.handleLogin = function(e) {
     showAlert(`أهلاً بك ${found.rank} / ${found.name}`);
     refreshAllUI();
     
-    if (hasAnyAdminPerm()) switchView('admin');
-    else switchView('member-dashboard');
+    // التوجيه المباشر إلى الصفحة الرئيسية فور تسجيل الدخول لجميع المستخدمين
+    switchView('home');
 }
 
 window.handleLogout = function() {
@@ -328,13 +328,12 @@ window.renderPublicRoster = function() {
     const search = (document.getElementById('search-roster')?.value || '').toLowerCase();
     
     let allApproved = [...members];
-    // إدراج القائد العام كـ "سيف 1" دائماً في الكشف العام
     if (!allApproved.some(m => m.id === 'root_commander')) {
         allApproved.push({
             id: 'root_commander',
             name: 'قائد الشرطة العسكرية العام',
             rank: currentUser && currentUser.id === 'root_commander' ? currentUser.rank : 'فريق أول',
-            codeNumber: 1, // ثابت سيف 1
+            codeNumber: 1,
             discordId: '0000000000',
             positionTitle: 'قائد الشرطة العسكرية',
             onDuty: currentUser && currentUser.id === 'root_commander' ? currentUser.onDuty : false
@@ -458,13 +457,13 @@ window.handleUpdateCommanderProfile = function(e) {
 
     const newRank = document.getElementById('commander-edit-rank').value;
     currentUser.rank = newRank;
-    currentUser.codeNumber = 1; // القائد العام يظل سيف 1 دائماً
+    currentUser.codeNumber = 1;
 
     playAlertSound();
     addAuditLog(`حدث القائد العام رتبته إلى (${newRank}) ويبقى سيف 1`);
     saveSystemData();
     refreshAllUI();
-    showAlert('تم تحديث رتبة القائد العام بنجاح (تبقى سيف 1 دائماً).');
+    showAlert('تم تحديث رتبة القائد العام بنجاح.');
 }
 
 function renderAdminPanels() {
@@ -476,10 +475,11 @@ function renderAdminPanels() {
         if (rankEl && currentUser.rank) rankEl.value = currentUser.rank;
         if (codeEl) {
             codeEl.value = 1;
-            codeEl.disabled = true; // منع تعديل كود القائد العام ليبقى 1 حصرياً
+            codeEl.disabled = true;
         }
     }
 
+    // إدارة الأفراد مع عرض الساعات والدقائق والثواني بدقة
     const membersTbody = document.getElementById('admin-members-tbody');
     const approved = [...members].sort((a, b) => a.codeNumber - b.codeNumber);
     membersTbody.innerHTML = approved.map(m => `
@@ -504,6 +504,7 @@ function renderAdminPanels() {
         </tr>
     `).join('');
 
+    // صفحة الجرد وأعلى الساعات
     const leaderboardContainer = document.getElementById('admin-leaderboard-container');
     if (leaderboardContainer) {
         let allForLeaderboard = [...approved];
@@ -591,6 +592,7 @@ window.handleAdminCreateMember = function(e) {
         finalCode = customCode;
     }
 
+    // إزالة حقل القطاع الحالي تماماً عند إضافة فرد جديد
     members.push({
         id: Date.now(),
         name,
@@ -667,6 +669,7 @@ window.handleCommanderCreateLeader = function(e) {
         return;
     }
 
+    // إضافة صلاحية معاينة صفحة أوقات الجرد للمسؤولين
     const permissions = {
         addMember: true,
         editName: true,
