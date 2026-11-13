@@ -350,7 +350,6 @@ function refreshAllUI() {
     }
 }
 
-// عرض قائمة التبويبات بناءً على الصلاحيات الممنوحة حصراً
 function renderAdminTabs() {
     const container = document.getElementById('admin-tabs-container');
     if (!container) return;
@@ -367,7 +366,6 @@ function renderAdminTabs() {
         availableTabs.push('tab-add-member');
     }
     
-    // إدارة الأفراد تظهر لمن لديه أي صلاحية إدارية
     if (currentUser.id === 'root_commander' || hasAnyAdminPerm()) {
         html += `<button id="btn-tab-members" onclick="switchAdminTab('tab-members', this)" class="admin-tab px-3.5 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs">إدارة الأفراد</button>`;
         availableTabs.push('tab-members');
@@ -394,7 +392,6 @@ function renderAdminTabs() {
         availableTabs.push('tab-roles');
     }
     
-    // قائمة المسؤولين لا تظهر أبداً إلا إذا كان القائد العام أو لديه صلاحية إضافة الأفراد/القيادة
     if (currentUser.id === 'root_commander' || currentUser.permissions?.addMember) {
         html += `<button id="btn-tab-permissions-overview" onclick="switchAdminTab('tab-permissions-overview', this)" class="admin-tab px-3.5 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs">🛡️ قائمة المسؤولين</button>`;
         availableTabs.push('tab-permissions-overview');
@@ -605,7 +602,12 @@ window.renderMemberDashboard = function() {
                         <p class="text-xs text-slate-500 mt-1">ملاحظة: ${activeG.note || 'لا توجد ملاحظات'}</p>
                     </div>
                     <div>
-                        ${activeG.videoUrl ? `<span class="text-emerald-600 font-bold text-xs">✓ تم رفع فيديو الإثبات بنجاح</span>` : `
+                        ${activeG.videoUrl ? `
+                            <div class="flex items-center gap-2">
+                                <span class="text-emerald-600 font-bold text-xs">✓ تم رفع فيديو الإثبات</span>
+                                <button onclick="openVideoModal('${activeG.videoUrl}')" class="px-3 py-1.5 bg-slate-900 text-white font-bold rounded-xl text-xs shadow">🎥 مشاهدة الفيديو</button>
+                            </div>
+                        ` : `
                             <label class="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-md inline-block">
                                 🎥 رفع فيديو إثبات الخفارة
                                 <input type="file" accept="video/*" class="hidden" onchange="uploadGuardVideo(event, ${activeG.id})">
@@ -649,6 +651,9 @@ window.uploadGuardVideo = function(e, guardId) {
     const file = e.target.files[0];
     if (!file) return;
 
+    // تنبيه لبدء القراءة
+    showAlert('جاري رفع ومعالجة فيديو الخفارة...');
+
     const reader = new FileReader();
     reader.onload = function(uploadEvent) {
         const videoDataUrl = uploadEvent.target.result;
@@ -658,29 +663,33 @@ window.uploadGuardVideo = function(e, guardId) {
             duty.status = 'completed';
         }
         saveSystemData();
-        showAlert('تم رفع فيديو الخفارة بنجاح وإرساله للمسؤولين.');
+        showAlert('تم رفع ومعالجة فيديو الخفارة بنجاح وتحديث حالته.');
         renderMemberDashboard();
+        renderAdminPanels();
     };
     reader.readAsDataURL(file);
 }
 
+// دالة فتح وتشغيل الفيديو داخل الموقع في نافذة منبثقة مباشرة دون تحميل
 window.openVideoModal = function(url) {
     let modal = document.getElementById('video-preview-modal');
     if (!modal) {
         modal = document.createElement('div');
         modal.id = 'video-preview-modal';
         modal.className = 'fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4';
-        modal.innerHTML = `
-            <div class="bg-white rounded-3xl overflow-hidden max-w-2xl w-full p-4 space-y-3 shadow-2xl">
-                <div class="flex justify-between items-center">
-                    <h3 class="font-black text-sm text-slate-900">معاينة فيديو إثبات الخفارة</h3>
-                    <button onclick="document.getElementById('video-preview-modal').remove()" class="px-3 py-1 bg-slate-100 rounded-xl text-xs font-bold">✕ إغلاق</button>
-                </div>
-                <video id="modal-video-source" controls class="w-full rounded-2xl max-h-[70vh] bg-black"></video>
-            </div>
-        `;
         document.body.appendChild(modal);
     }
+    modal.innerHTML = `
+        <div class="bg-white rounded-3xl overflow-hidden max-w-3xl w-full p-4 space-y-3 shadow-2xl">
+            <div class="flex justify-between items-center border-b pb-2">
+                <h3 class="font-black text-sm text-slate-900">مشاهدة فيديو إثبات الخفارة</h3>
+                <button onclick="document.getElementById('video-preview-modal').remove()" class="px-3 py-1 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-bold transition">✕ إغلاق</button>
+            </div>
+            <div class="bg-black rounded-2xl overflow-hidden flex justify-center items-center">
+                <video id="modal-video-source" controls autoplay class="w-full max-h-[70vh] object-contain"></video>
+            </div>
+        </div>
+    `;
     document.getElementById('modal-video-source').src = url;
 }
 
@@ -1257,7 +1266,7 @@ function renderGuardDuties() {
         <tr>
             <td class="p-4 font-bold">سيف ${g.memberCode} - ${g.memberName}</td>
             <td class="p-4 text-xs">${g.location} <br><span class="text-slate-500">ملاحظة: ${g.note || 'لا توجد'}</span>
-                ${g.videoUrl ? `<br><button onclick="openVideoModal('${g.videoUrl}')" class="mt-1 text-red-600 font-bold underline">🎥 معاينة فيديو الخفارة</button>` : ''}
+                ${g.videoUrl ? `<br><button onclick="openVideoModal('${g.videoUrl}')" class="mt-1 px-3 py-1 bg-slate-900 text-white rounded-lg font-bold text-xs shadow inline-flex items-center gap-1">🎥 مشاهدة الفيديو</button>` : ''}
             </td>
             <td class="p-4 text-xs font-bold text-red-600">${g.issuerRank} / ${g.issuerName}</td>
             <td class="p-4 text-xs">
