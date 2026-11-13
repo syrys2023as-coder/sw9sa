@@ -183,7 +183,6 @@ window.toggleCustomCodeInput = function(selectId, inputId) {
     else wrap.classList.add('hidden');
 }
 
-// تم تصحيح دالة فحص الصلاحيات لتشمل inventoryManager وكافة الصلاحيات المتاحة بدقة
 function hasAnyAdminPerm() {
     if (!currentUser) return false;
     if (currentUser.id === 'root_commander') return true;
@@ -350,41 +349,69 @@ function refreshAllUI() {
     }
 }
 
+// دقيق جداً: يعرض فقط التبويبات التي يملك المسؤول صلاحيات لها، ويفتح تلقائياً أول تبويب مسموح له
 function renderAdminTabs() {
     const container = document.getElementById('admin-tabs-container');
     if (!container) return;
 
     let html = '';
+    let availableTabs = [];
+
     if (currentUser.id === 'root_commander') {
-        html += `<button id="btn-tab-commander-profile" onclick="switchAdminTab('tab-commander-profile', this)" class="admin-tab px-3 py-2 bg-red-600 text-white font-bold rounded-xl text-xs">تعديل ملفي</button>`;
+        html += `<button id="btn-tab-commander-profile" onclick="switchAdminTab('tab-commander-profile', this)" class="admin-tab px-3 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs">تعديل ملفي</button>`;
+        availableTabs.push('tab-commander-profile');
     }
     if (currentUser.id === 'root_commander' || currentUser.permissions?.addMember) {
         html += `<button id="btn-tab-add-member" onclick="switchAdminTab('tab-add-member', this)" class="admin-tab px-3 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs">+ إضافة فرد</button>`;
+        availableTabs.push('tab-add-member');
     }
-    html += `<button id="btn-tab-members" onclick="switchAdminTab('tab-members', this)" class="admin-tab px-3.5 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs">إدارة الأفراد</button>`;
+    
+    // إدارة الأفراد تظهر لمن لديه أي صلاحية إدارية أو جرد
+    if (currentUser.id === 'root_commander' || hasAnyAdminPerm()) {
+        html += `<button id="btn-tab-members" onclick="switchAdminTab('tab-members', this)" class="admin-tab px-3.5 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs">إدارة الأفراد</button>`;
+        availableTabs.push('tab-members');
+    }
+
     if (currentUser.id === 'root_commander' || currentUser.permissions?.inventoryManager) {
         html += `<button id="btn-tab-inventory" onclick="switchAdminTab('tab-inventory', this)" class="admin-tab px-3.5 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs">📊 الجرد والساعات</button>`;
+        availableTabs.push('tab-inventory');
     }
     if (currentUser.id === 'root_commander' || currentUser.permissions?.warnMember) {
         html += `<button id="btn-tab-warnings" onclick="switchAdminTab('tab-warnings', this)" class="admin-tab px-3.5 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs">إدارة التحذيرات</button>`;
+        availableTabs.push('tab-warnings');
     }
     if (currentUser.id === 'root_commander' || currentUser.permissions?.dismissMember) {
         html += `<button id="btn-tab-dismissed" onclick="switchAdminTab('tab-dismissed', this)" class="admin-tab px-3.5 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs">المفصولين</button>`;
+        availableTabs.push('tab-dismissed');
     }
     if (currentUser.id === 'root_commander' || currentUser.permissions?.manageGuards) {
         html += `<button id="btn-tab-guards" onclick="switchAdminTab('tab-guards', this)" class="admin-tab px-3.5 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs">الخفارات</button>`;
+        availableTabs.push('tab-guards');
     }
     if (currentUser.id === 'root_commander' || currentUser.positionTitle?.includes('نائب')) {
         html += `<button id="btn-tab-roles" onclick="switchAdminTab('tab-roles', this)" class="admin-tab px-3.5 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs">المناصب</button>`;
+        availableTabs.push('tab-roles');
     }
+    
     html += `<button id="btn-tab-permissions-overview" onclick="switchAdminTab('tab-permissions-overview', this)" class="admin-tab px-3.5 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs">🛡️ قائمة المسؤولين</button>`;
+    availableTabs.push('tab-permissions-overview');
+
     if (currentUser.id === 'root_commander' || currentUser.permissions?.viewLogs) {
         html += `<button id="btn-tab-logs" onclick="switchAdminTab('tab-logs', this)" class="admin-tab px-3.5 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs">سجل العمليات (Log)</button>`;
+        availableTabs.push('tab-logs');
     }
     if (currentUser.id === 'root_commander' || currentUser.permissions?.canAnnounce) {
         html += `<button id="btn-tab-announce" onclick="switchAdminTab('tab-announce', this)" class="admin-tab px-3 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs">تعميم</button>`;
+        availableTabs.push('tab-announce');
     }
     container.innerHTML = html;
+
+    // تفعيل أول تبويب متاح تلقائياً للمسؤول لكي لا يظهر فارجاً
+    if (availableTabs.length > 0) {
+        const firstTabId = availableTabs[0];
+        const firstBtn = document.getElementById(`btn-${firstTabId}`);
+        switchAdminTab(firstTabId, firstBtn);
+    }
 }
 
 window.renderPublicRoster = function() {
