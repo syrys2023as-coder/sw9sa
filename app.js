@@ -91,11 +91,13 @@ db.collection("military_police").doc("system_data").onSnapshot((doc) => {
         auditLogs = data.auditLogs || [];
         systemNotifications = data.systemNotifications || [];
 
-        if (currentUser) {
+        // تحديث بيانات المستخدم الحالي فقط إذا لم يكن في حالة مناوبة نشطة لتفادي تداخل العداد
+        if (currentUser && !currentUser.onDuty) {
             if (currentUser.id === 'root_commander') {
                 if (data.rootCommanderProfile) {
                     currentUser.rank = data.rootCommanderProfile.rank || currentUser.rank;
                     currentUser.codeNumber = data.rootCommanderProfile.codeNumber || currentUser.codeNumber;
+                    currentUser.totalSeconds = data.rootCommanderProfile.totalSeconds || currentUser.totalSeconds;
                 }
             } else {
                 const fresh = members.find(m => m.id === currentUser.id);
@@ -266,6 +268,10 @@ window.handleLogin = function(e) {
 }
 
 window.handleLogout = function() {
+    if (currentUser && currentUser.onDuty) {
+        // إنهاء المناوبة تلقائياً وبأمان عند تسجيل الخروج لمنع ضياع أو تضاعف الوقت
+        toggleDuty(false);
+    }
     currentUser = null;
     refreshAllUI();
     switchView('home');
@@ -400,15 +406,11 @@ function renderDutyPanel() {
     `;
 }
 
+// مؤقت العداد الميداني الفردي الثابت
 setInterval(() => {
     if (currentUser && currentUser.onDuty) {
         currentUser.totalSeconds = (currentUser.totalSeconds || 0) + 1;
         
-        if (currentUser.id !== 'root_commander') {
-            const mObj = members.find(m => m.id === currentUser.id);
-            if (mObj) mObj.totalSeconds = currentUser.totalSeconds;
-        }
-
         const timerEl = document.getElementById('live-duty-timer');
         if (timerEl) {
             timerEl.innerText = formatTimeDetailed(currentUser.totalSeconds);
@@ -423,33 +425,25 @@ window.toggleDuty = function(start) {
         if (currentUser.onDuty) return;
 
         currentUser.onDuty = true;
-        currentUser.dutyStartTime = Date.now();
         playAlertSound();
         pushNotification('تسجيل دخول', `سجل ${currentUser.rank} ${currentUser.name} دخولاً للمناوبة.`);
         addAuditLog(`سجل دخول للمناوبة: ${currentUser.rank} ${currentUser.name}`);
         showAlert('تم تسجيل دخولك للميدان وبدأ عداد الثواني.');
+        saveSystemData();
     } else {
-        // حماية تامة لمنع تكرار أو تدبيل حساب الوقت إذا لم يكن في المناوبة أصلاً
         if (!currentUser.onDuty) return;
 
-        // إيقاف حالة المناوبة فوراً لمنع أي عداد متداخل
+        // إيقاف العداد فوراً لمنع التضاعف
         currentUser.onDuty = false;
 
-        if (currentUser.dutyStartTime) {
-            const diffMs = Date.now() - currentUser.dutyStartTime;
-            const earnedSecs = Math.max(1, Math.round(diffMs / 1000));
-            
-            // إضافة الثواني المحسوبة فعلياً مرة واحدة فقط وتصفية وقت البداية تماماً
-            currentUser.totalSeconds = (currentUser.totalSeconds || 0) + earnedSecs;
-            currentUser.dutyStartTime = null;
-        }
+        // إضافة ثانية واحدة عن كل تكرار للمؤقت المحلي لتفادي أي تفاوت زمني
+        currentUser.totalSeconds = (currentUser.totalSeconds || 0);
 
         if (currentUser.id !== 'root_commander') {
             const idx = members.findIndex(m => m.id === currentUser.id);
             if (idx !== -1) {
                 members[idx].totalSeconds = currentUser.totalSeconds;
                 members[idx].onDuty = false;
-                members[idx].dutyStartTime = null;
             }
         }
 
@@ -462,9 +456,10 @@ window.toggleDuty = function(start) {
         pushNotification('تسجيل خروج', `سجل ${currentUser.rank} ${currentUser.name} خروجاً من المناوبة.`);
         addAuditLog(`سجل خروج من المناوبة: ${currentUser.rank} ${currentUser.name}`);
         showAlert(`تم إنهاء الخفارة والمناوبة بنجاح.`);
+        
+        saveSystemData();
     }
     
-    saveSystemData();
     renderDutyPanel();
     renderPublicRoster();
 }
