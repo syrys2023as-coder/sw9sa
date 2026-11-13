@@ -609,13 +609,16 @@ window.renderMemberDashboard = function() {
                     <div class="w-full md:w-auto">
                         ${activeG.videoUrl ? `
                             <div class="flex items-center gap-2">
-                                <span class="text-emerald-600 font-bold text-xs">✓ تم إرسال رابط الفيديو</span>
-                                <button onclick="openVideoModal('${activeG.videoUrl}')" class="px-3 py-1.5 bg-slate-900 text-white font-bold rounded-xl text-xs shadow">🎥 فتح الفيديو في نافذة خارجية</button>
+                                <span class="text-emerald-600 font-bold text-xs">✓ تم إرسال رابط يوتيوب</span>
+                                <button onclick="openVideoModal('${activeG.videoUrl}')" class="px-3 py-1.5 bg-slate-900 text-white font-bold rounded-xl text-xs shadow">🎥 فتح يوتيوب في نافذة خارجية</button>
                             </div>
                         ` : `
-                            <div class="flex gap-2 items-center">
-                                <input type="text" id="guard-video-link-input" placeholder="الصق رابط الفيديو هنا..." class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:border-red-600 flex-1">
-                                <button onclick="submitGuardVideoLink(${activeG.id})" class="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs shadow-md whitespace-nowrap">إرسال الرابط</button>
+                            <div class="flex flex-col gap-2 w-full">
+                                <div class="flex gap-2 items-center">
+                                    <input type="text" id="guard-video-link-input" placeholder="الصق رابط يوتيوب فقط هنا (youtube.com أو youtu.be)..." class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:border-red-600 flex-1">
+                                    <button onclick="submitGuardVideoLink(${activeG.id})" class="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs shadow-md whitespace-nowrap">إرسال الرابط</button>
+                                </div>
+                                <span class="text-[10px] text-red-600 font-bold">⚠️ تنبيه: يسمح فقط بروابط يوتيوب الرسمية (يتم رفض أي رابط آخر).</span>
                             </div>
                         `}
                     </div>
@@ -658,7 +661,14 @@ window.submitGuardVideoLink = function(guardId) {
     const linkVal = inputEl.value.trim();
 
     if (!linkVal) {
-        showAlert('يرجى لصق رابط الفيديو أولاً!', true);
+        showAlert('يرجى لصق رابط يوتيوب أولاً!', true);
+        return;
+    }
+
+    // التحقق من أن الرابط يتبع لموقع يوتيوب حصراً
+    const isYoutube = linkVal.includes('youtube.com') || linkVal.includes('youtu.be');
+    if (!isYoutube) {
+        showAlert('❌ مرفوض! يسمح فقط بروابط يوتيوب (YouTube). أي رابط آخر غير مقبول.', true);
         return;
     }
 
@@ -669,12 +679,11 @@ window.submitGuardVideoLink = function(guardId) {
     }
 
     saveSystemData();
-    showAlert('تم إرسال وحفظ رابط فيديو الخفارة بنجاح.');
+    showAlert('تم التحقق وقبول رابط يوتيوب وحفظه بنجاح.');
     renderMemberDashboard();
     renderAdminPanels();
 }
 
-// فتح الفيديو في نافذة مستقلة جديدة برا الموقع تماماً
 window.openVideoModal = function(url) {
     if (!url) return;
     window.open(url, '_blank');
@@ -1255,11 +1264,11 @@ function renderGuardDuties() {
         <tr>
             <td class="p-4 font-bold">سيف ${g.memberCode} - ${g.memberName}</td>
             <td class="p-4 text-xs">${g.location} <br><span class="text-slate-500">ملاحظة: ${g.note || 'لا توجد'}</span>
-                ${g.videoUrl ? `<br><button onclick="openVideoModal('${g.videoUrl}')" class="mt-1 px-3 py-1 bg-slate-900 text-white rounded-lg font-bold text-xs shadow inline-flex items-center gap-1">🎥 فتح في نافذة خارجية</button>` : ''}
+                ${g.videoUrl ? `<br><button onclick="openVideoModal('${g.videoUrl}')" class="mt-1 px-3 py-1 bg-slate-900 text-white rounded-lg font-bold text-xs shadow inline-flex items-center gap-1">🎥 فتح يوتيوب خارجي</button>` : ''}
             </td>
             <td class="p-4 text-xs font-bold text-red-600">${g.issuerRank} / ${g.issuerName}</td>
             <td class="p-4 text-xs">
-                ${(g.status === 'completed' || (g.videoUrl && g.videoUrl.trim() !== '')) ? '<span class="text-emerald-600 font-bold block">مكتملة (تم إرسال الرابط)</span>' : '<span class="text-amber-600 font-bold block">بانتظار إرسال الرابط</span>'}
+                ${(g.status === 'completed' || (g.videoUrl && g.videoUrl.trim() !== '')) ? '<span class="text-emerald-600 font-bold block">مكتملة (رابط يوتيوب معتمد)</span>' : '<span class="text-amber-600 font-bold block">بانتظار إرسال الرابط</span>'}
             </td>
             <td class="p-4"><button onclick="deleteGuard(${g.id})" class="px-2 py-1 bg-slate-200 rounded text-xs">حذف</button></td>
         </tr>
