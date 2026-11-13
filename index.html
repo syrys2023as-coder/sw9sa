@@ -16,8 +16,8 @@
 <body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col justify-between">
 
     <audio id="alert-sound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
+    <div id="custom-modal-container"></div>
 
-    <!-- الهيدر العلوي -->
     <header class="bg-white border-b-2 border-red-600 sticky top-0 z-50 shadow-sm">
         <div class="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
             <div class="flex items-center gap-3 cursor-pointer" onclick="switchView('home')">
@@ -45,9 +45,7 @@
         </div>
     </header>
 
-    <!-- المحتوى الرئيسي -->
     <main class="flex-grow max-w-7xl mx-auto px-4 py-8 w-full space-y-8">
-
         <!-- واجهة الرئيسية -->
         <section id="view-home" class="space-y-8">
             <div class="bg-white border border-slate-200 rounded-3xl p-8 md:p-10 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 border-r-8 border-r-red-600">
@@ -63,7 +61,6 @@
                 </div>
             </div>
 
-            <!-- إحصائيات -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
                     <div>
@@ -88,7 +85,7 @@
                 </div>
             </div>
 
-            <!-- الكشف العام -->
+            <!-- الكشف العام (بدون أعمدة الوقت) -->
             <div class="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
                 <div class="p-6 border-b border-slate-100 flex flex-wrap justify-between items-center gap-4">
                     <div>
@@ -106,7 +103,6 @@
                                 <th class="p-4">الاسم</th>
                                 <th class="p-4">ديسكورد آيدي (Discord ID)</th>
                                 <th class="p-4">المنصب</th>
-                                <th class="p-4">رصيد الوقت (ساعات ودقائق وثواني)</th>
                                 <th class="p-4">الحالة</th>
                             </tr>
                         </thead>
@@ -138,12 +134,12 @@
             </form>
         </section>
 
-        <!-- المناوبة والخفارة -->
+        <!-- المناوبة -->
         <section id="view-duty" class="hidden max-w-xl mx-auto bg-white border border-slate-200 rounded-3xl p-8 shadow-lg text-center space-y-6">
             <div id="duty-content"></div>
         </section>
 
-        <!-- لوحة العضو -->
+        <!-- لوحة الفرد -->
         <section id="view-member-dashboard" class="hidden max-w-4xl mx-auto space-y-6">
             <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex flex-wrap items-center justify-between gap-4">
                 <div class="flex items-center gap-4">
@@ -156,11 +152,9 @@
                         <p id="member-dash-meta" class="text-xs text-slate-500 font-bold"></p>
                     </div>
                 </div>
-                <div class="flex gap-2">
-                    <button onclick="openMemberCredentialsModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs transition">تغيير اسم المستخدم / كلمة المرور</button>
-                </div>
             </div>
 
+            <!-- رفع فيديو الخفارة (لا يظهر إلا إذا وُجد أمر خفارة نشط) -->
             <div id="member-guard-duty-box" class="hidden bg-white border-2 border-red-600 rounded-3xl p-6 shadow-sm space-y-3"></div>
 
             <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
@@ -180,28 +174,15 @@
 
         <!-- غرفة القيادة والتحكم -->
         <section id="view-admin" class="hidden space-y-6">
-            <div id="admin-guard-alerts" class="space-y-2"></div>
-
             <div class="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm flex flex-wrap justify-between items-center gap-4">
                 <div>
                     <h2 class="text-lg font-black text-slate-900">غرفة القيادة والتحكم</h2>
                     <p id="current-role-badge" class="text-xs font-bold text-red-600"></p>
                 </div>
-                <div class="flex flex-wrap gap-2">
-                    <button id="btn-tab-commander-profile" onclick="switchAdminTab('tab-commander-profile', this)" class="admin-tab hidden px-3 py-2 bg-red-600 text-white font-bold rounded-xl text-xs">تعديل ملفي الشخصي</button>
-                    <button id="btn-tab-add-member" onclick="switchAdminTab('tab-add-member', this)" class="admin-tab px-3 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs">+ إضافة فرد</button>
-                    <button id="btn-tab-members" onclick="switchAdminTab('tab-members', this)" class="admin-tab px-3.5 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs">إدارة الأفراد</button>
-                    <button id="btn-tab-warnings" onclick="switchAdminTab('tab-warnings', this)" class="admin-tab px-3.5 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs">إدارة التحذيرات</button>
-                    <button id="btn-tab-dismissed" onclick="switchAdminTab('tab-dismissed', this)" class="admin-tab px-3.5 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs">المفصولين</button>
-                    <button id="btn-tab-guards" onclick="switchAdminTab('tab-guards', this)" class="admin-tab px-3.5 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs">الخفارات</button>
-                    <button id="btn-tab-roles" onclick="switchAdminTab('tab-roles', this)" class="admin-tab hidden px-3.5 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs">المناصب</button>
-                    <button id="btn-tab-permissions-overview" onclick="switchAdminTab('tab-permissions-overview', this)" class="admin-tab px-3.5 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs">🛡️ قائمة المسؤولين</button>
-                    <button id="btn-tab-logs" onclick="switchAdminTab('tab-logs', this)" class="admin-tab hidden px-3.5 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs">سجل العمليات (Log)</button>
-                    <button id="btn-tab-announce" onclick="switchAdminTab('tab-announce', this)" class="admin-tab px-3 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs">تعميم</button>
-                </div>
+                <div id="admin-tabs-container" class="flex flex-wrap gap-2"></div>
             </div>
 
-            <!-- صفحة تعديل الملف الشخصي للقائد العام -->
+            <!-- تبويب: تعديل ملف القائد العام -->
             <div id="tab-commander-profile" class="admin-pane hidden max-w-xl mx-auto bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
                 <h3 class="font-black text-sm text-slate-900 border-b border-slate-100 pb-3">تعديل ملفي الشخصي (القائد العام)</h3>
                 <form onsubmit="handleUpdateCommanderProfile(event)" class="space-y-4">
@@ -217,7 +198,7 @@
                 </form>
             </div>
 
-            <!-- 1. إضافة فرد (بدون حقل القطاع) -->
+            <!-- تبويب: إضافة فرد -->
             <div id="tab-add-member" class="admin-pane max-w-2xl mx-auto bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
                 <h3 class="font-black text-sm text-slate-900 border-b border-slate-100 pb-3">إضافة فرد جديد وإنشاء حساب</h3>
                 <form id="admin-add-member-form" onsubmit="handleAdminCreateMember(event)" class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -257,11 +238,9 @@
                 </form>
             </div>
 
-            <!-- 2. إدارة الأفراد -->
+            <!-- تبويب: إدارة الأفراد -->
             <div id="tab-members" class="admin-pane hidden bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
-                <div class="p-5 border-b border-slate-100 font-black text-sm flex justify-between items-center">
-                    <span>إدارة الأفراد، الملاحظات السرية، الأكواد، وتعديل بيانات الاعتماد</span>
-                </div>
+                <div class="p-5 border-b border-slate-100 font-black text-sm">إدارة الأفراد، الملاحظات السرية، الأكواد، وتعديل بيانات الاعتماد</div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-right text-xs">
                         <thead class="bg-slate-50 text-slate-500 border-b border-slate-200">
@@ -269,7 +248,7 @@
                                 <th class="p-4">الكود</th>
                                 <th class="p-4">الرتبة والاسم</th>
                                 <th class="p-4">ديسكورد آيدي</th>
-                                <th class="p-4">الملاحظة السرية (للمسؤولين فقط)</th>
+                                <th class="p-4">الملاحظة السرية</th>
                                 <th class="p-4">رصيد الوقت</th>
                                 <th class="p-4">التحكم والتعديل</th>
                             </tr>
@@ -279,13 +258,47 @@
                 </div>
             </div>
 
-            <!-- 3. إدارة التحذيرات -->
+            <!-- تبويب: الجرد والساعات (مع لوحة المتصدرين وتعديل الساعات) -->
+            <div id="tab-inventory" class="admin-pane hidden space-y-6">
+                <div id="inventory-top-scorer-card" class="bg-gradient-to-l from-red-600 to-red-800 text-white rounded-3xl p-6 shadow-lg flex items-center justify-between">
+                    <div>
+                        <span class="px-3 py-1 bg-white/20 text-white text-[10px] font-black rounded-full">🏆 بطل الأسبوع (أعلى رصيد ساعات)</span>
+                        <h3 id="top-scorer-name" class="text-xl font-black mt-2">جاري التحميل...</h3>
+                        <p id="top-scorer-time" class="text-xs font-mono opacity-90 mt-1"></p>
+                    </div>
+                    <div class="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center text-3xl">⭐</div>
+                </div>
+
+                <div class="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm p-6 space-y-4">
+                    <div class="flex justify-between items-center border-b pb-3">
+                        <div>
+                            <h3 class="font-black text-sm text-slate-900">سجل الجرد الميداني وتعديل الساعات</h3>
+                            <p class="text-xs text-slate-400">إضافة أو خصم أو ضبط ساعات العمل للأفراد بدقة</p>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-right text-xs">
+                            <thead class="bg-slate-50 text-slate-500 border-b border-slate-200">
+                                <tr>
+                                    <th class="p-4">الكود</th>
+                                    <th class="p-4">الرتبة والاسم</th>
+                                    <th class="p-4">رصيد الوقت الحالي</th>
+                                    <th class="p-4">إدارة وتعديل الوقت</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-inventory-tbody" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- تبويب: إدارة التحذيرات -->
             <div id="tab-warnings" class="admin-pane hidden bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
                 <h3 class="font-black text-sm text-slate-900">صفحة إدارة التحذيرات الإدارية</h3>
                 <div id="admin-warnings-management-list" class="space-y-3"></div>
             </div>
 
-            <!-- 4. المفصولين -->
+            <!-- تبويب: المفصولين -->
             <div id="tab-dismissed" class="admin-pane hidden bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
                 <div class="p-5 border-b border-slate-100 font-black text-sm flex justify-between items-center">
                     <span>أرشيف الأفراد المفصولين</span>
@@ -307,7 +320,7 @@
                 </div>
             </div>
 
-            <!-- 5. الخفارات -->
+            <!-- تبويب: الخفارات -->
             <div id="tab-guards" class="admin-pane hidden space-y-6">
                 <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
                     <h3 class="font-black text-sm text-slate-900">تكليف فرد بخفارة (مع خيار الملاحظة)</h3>
@@ -323,7 +336,7 @@
                 </div>
 
                 <div class="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
-                    <div class="p-5 border-b border-slate-100 font-black text-sm">سجل الخفارات وفيديوهات إثبات الإنجاز (تظهر للمسؤولين)</div>
+                    <div class="p-5 border-b border-slate-100 font-black text-sm">سجل الخفارات وفيديوهات إثبات الإنجاز</div>
                     <div class="overflow-x-auto">
                         <table class="w-full text-right text-xs">
                             <thead class="bg-slate-50 text-slate-500 border-b border-slate-200">
@@ -341,7 +354,7 @@
                 </div>
             </div>
 
-            <!-- 6. قائمة المسؤولين وصلاحياتهم (الجديدة) -->
+            <!-- تبويب: قائمة المسؤولين -->
             <div id="tab-permissions-overview" class="admin-pane hidden space-y-4">
                 <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
                     <h3 class="font-black text-sm text-slate-900 border-b border-slate-100 pb-3">قائمة المسؤولين وصلاحياتهم الحالية</h3>
@@ -349,7 +362,7 @@
                 </div>
             </div>
 
-            <!-- 7. المناصب القيادية وصلاحياتها -->
+            <!-- تبويب: المناصب والصلاحيات -->
             <div id="tab-roles" class="admin-pane hidden space-y-6">
                 <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
                     <h3 class="font-black text-base text-slate-950 border-b border-slate-100 pb-3">تعيين منصب قيادي وتحديد الصلاحيات الكاملة</h3>
@@ -389,37 +402,20 @@
                             </div>
                         </div>
 
-                        <!-- قسم صلاحيات المسؤول الشاملة -->
                         <div class="p-5 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
                             <h4 class="font-black text-xs text-red-600 uppercase tracking-wider">صلاحيات هذا المسؤول في غرفة القيادة:</h4>
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs font-bold text-slate-700">
-                                <label class="flex items-center gap-2 cursor-pointer p-2 bg-white rounded-xl border border-slate-100 hover:border-red-200">
-                                    <input type="checkbox" id="perm-add-member" class="accent-red-600 w-4 h-4"> إضافة فرد جديد
-                                </label>
-                                <label class="flex items-center gap-2 cursor-pointer p-2 bg-white rounded-xl border border-slate-100 hover:border-red-200">
-                                    <input type="checkbox" id="perm-edit-name" class="accent-red-600 w-4 h-4"> تعديل أسماء الأفراد والأكواد
-                                </label>
-                                <label class="flex items-center gap-2 cursor-pointer p-2 bg-white rounded-xl border border-slate-100 hover:border-red-200">
-                                    <input type="checkbox" id="perm-edit-rank" class="accent-red-600 w-4 h-4"> ترقية الأفراد
-                                </label>
-                                <label class="flex items-center gap-2 cursor-pointer p-2 bg-white rounded-xl border border-slate-100 hover:border-red-200">
-                                    <input type="checkbox" id="perm-dismiss" class="accent-red-600 w-4 h-4"> فصل الأفراد ونقلهم للأرشيف
-                                </label>
-                                <label class="flex items-center gap-2 cursor-pointer p-2 bg-white rounded-xl border border-slate-100 hover:border-red-200">
-                                    <input type="checkbox" id="perm-warn" class="accent-red-600 w-4 h-4"> إصدار وتعديل وحذف التحذيرات
-                                </label>
-                                <label class="flex items-center gap-2 cursor-pointer p-2 bg-white rounded-xl border border-slate-100 hover:border-red-200">
-                                    <input type="checkbox" id="perm-guards" class="accent-red-600 w-4 h-4"> إدارة الخفارات ومعاينة الفيديوهات
-                                </label>
-                                <label class="flex items-center gap-2 cursor-pointer p-2 bg-white rounded-xl border border-slate-100 hover:border-red-200">
-                                    <input type="checkbox" id="perm-notes" class="accent-red-600 w-4 h-4"> كتابة وتعديل الملاحظات السرية للأفراد
-                                </label>
-                                <label class="flex items-center gap-2 cursor-pointer p-2 bg-white rounded-xl border border-slate-100 hover:border-red-200">
-                                    <input type="checkbox" id="perm-announce" class="accent-red-600 w-4 h-4"> نشر التعاميم العسكرية
-                                </label>
-                                <label class="flex items-center gap-2 cursor-pointer p-2 bg-white rounded-xl border border-slate-100 hover:border-red-200">
-                                    <input type="checkbox" id="perm-edit-credentials" class="accent-red-600 w-4 h-4"> تعديل اسم المستخدم أو كلمة المرور للأفراد
-                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer p-2 bg-white rounded-xl border border-slate-100"><input type="checkbox" id="perm-add-member" class="accent-red-600 w-4 h-4"> إضافة فرد جديد</label>
+                                <label class="flex items-center gap-2 cursor-pointer p-2 bg-white rounded-xl border border-slate-100"><input type="checkbox" id="perm-edit-name" class="accent-red-600 w-4 h-4"> تعديل أسماء الأفراد والأكواد</label>
+                                <label class="flex items-center gap-2 cursor-pointer p-2 bg-white rounded-xl border border-slate-100"><input type="checkbox" id="perm-edit-rank" class="accent-red-600 w-4 h-4"> ترقية الأفراد</label>
+                                <label class="flex items-center gap-2 cursor-pointer p-2 bg-white rounded-xl border border-slate-100"><input type="checkbox" id="perm-dismiss" class="accent-red-600 w-4 h-4"> فصل الأفراد</label>
+                                <label class="flex items-center gap-2 cursor-pointer p-2 bg-white rounded-xl border border-slate-100"><input type="checkbox" id="perm-warn" class="accent-red-600 w-4 h-4"> التحذيرات</label>
+                                <label class="flex items-center gap-2 cursor-pointer p-2 bg-white rounded-xl border border-slate-100"><input type="checkbox" id="perm-guards" class="accent-red-600 w-4 h-4"> الخفارات</label>
+                                <label class="flex items-center gap-2 cursor-pointer p-2 bg-white rounded-xl border border-slate-100"><input type="checkbox" id="perm-notes" class="accent-red-600 w-4 h-4"> الملاحظات السرية</label>
+                                <label class="flex items-center gap-2 cursor-pointer p-2 bg-white rounded-xl border border-slate-100"><input type="checkbox" id="perm-inventory" class="accent-red-600 w-4 h-4"> 📊 صلاحية الجرد والساعات</label>
+                                <label class="flex items-center gap-2 cursor-pointer p-2 bg-white rounded-xl border border-slate-100"><input type="checkbox" id="perm-announce" class="accent-red-600 w-4 h-4"> التعاميم والتنبيهات</label>
+                                <label class="flex items-center gap-2 cursor-pointer p-2 bg-white rounded-xl border border-slate-100"><input type="checkbox" id="perm-edit-credentials" class="accent-red-600 w-4 h-4"> اليوزر والباسورد</label>
+                                <label class="flex items-center gap-2 cursor-pointer p-2 bg-white rounded-xl border border-slate-100"><input type="checkbox" id="perm-view-logs" class="accent-red-600 w-4 h-4"> سجل العمليات (Log)</label>
                             </div>
                         </div>
 
@@ -428,23 +424,29 @@
                 </div>
             </div>
 
-            <!-- 8. نشر تعميم -->
-            <div id="tab-announce" class="admin-pane hidden max-w-xl mx-auto bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
-                <h3 class="font-black text-sm text-slate-900 border-b border-slate-100 pb-3">نشر تعميم أو أمر عسكري</h3>
-                <form onsubmit="handlePostAnnouncement(event)" class="space-y-4">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">عنوان التعميم</label>
-                        <input type="text" id="ann-title" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">محتوى التعميم</label>
-                        <textarea id="ann-body" rows="4" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs"></textarea>
-                    </div>
-                    <button type="submit" class="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs shadow-md">نشر التعميم رسمياً</button>
-                </form>
+            <!-- تبويب: التعاميم -->
+            <div id="tab-announce" class="admin-pane hidden max-w-2xl mx-auto space-y-6">
+                <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+                    <h3 class="font-black text-sm text-slate-900 border-b border-slate-100 pb-3">نشر تعميم أو أمر عسكري</h3>
+                    <form onsubmit="handlePostAnnouncement(event)" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">عنوان التعميم</label>
+                            <input type="text" id="ann-title" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">محتوى التعميم</label>
+                            <textarea id="ann-body" rows="4" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs"></textarea>
+                        </div>
+                        <button type="submit" class="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs shadow-md">نشر التعميم رسمياً</button>
+                    </form>
+                </div>
+                <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+                    <h3 class="font-black text-sm text-slate-900 border-b border-slate-100 pb-3">التعاميم النشطة (مع خيار الحذف)</h3>
+                    <div id="admin-announcements-manage-list" class="space-y-3"></div>
+                </div>
             </div>
 
-            <!-- 9. سجل العمليات (Log) -->
+            <!-- تبويب: سجل العمليات -->
             <div id="tab-logs" class="admin-pane hidden bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
                 <div class="p-5 border-b border-slate-100 font-black text-sm">سجل العمليات والتحركات الإدارية (Log)</div>
                 <div class="overflow-x-auto">
@@ -461,10 +463,8 @@
                 </div>
             </div>
         </section>
-
     </main>
 
-    <!-- الفوتر -->
     <footer class="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-400 font-semibold">
         جميع الحقوق محفوظة © قيادة الشرطة العسكرية
     </footer>
