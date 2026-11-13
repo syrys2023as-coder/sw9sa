@@ -155,7 +155,7 @@ function hasAnyAdminPerm() {
     return Object.values(currentUser.permissions).some(v => v === true);
 }
 
-// دالة فحص الصلاحية بدقة وإظهار رسالة المنع المطلوبة
+// دالة فحص الصلاحية الصارمة مع رسالة التنبيه المطلوبة
 function checkAdminPerm(permKey, permNameMsg = 'الصلاحية المطلوبة') {
     if (!currentUser) {
         showAlert('يرجى تسجيل الدخول أولاً', true);
@@ -743,16 +743,23 @@ function renderAdminPanels() {
         `).join('');
     }
 
+    // صفحة إدارة الصلاحيات للمسؤولين (عرض وتعديل صلاحياتهم أو حذفهم كمسؤولين)
     const permsOverviewContainer = document.getElementById('admin-permissions-overview-container');
     if (permsOverviewContainer) {
         const leaders = members.filter(m => m.permissions && Object.keys(m.permissions).length > 0);
         permsOverviewContainer.innerHTML = leaders.length === 0 ? `<p class="text-xs text-slate-400">لا يوجد مسؤولون بصلاحيات مخصصة حالياً.</p>` : leaders.map(l => `
-            <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2 text-xs">
+            <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3 text-xs">
                 <div class="flex justify-between items-center">
-                    <span class="font-black text-slate-900 text-sm">${l.rank} / ${l.name} (سيف ${l.codeNumber})</span>
-                    <span class="px-2 py-1 bg-red-50 text-red-600 rounded font-bold">${l.positionTitle}</span>
+                    <div>
+                        <span class="font-black text-slate-900 text-sm block">${l.rank} / ${l.name} (سيف ${l.codeNumber})</span>
+                        <span class="text-red-600 font-bold">${l.positionTitle}</span>
+                    </div>
+                    <div class="space-x-2">
+                        <button onclick="openEditLeaderPermissionsModal(${l.id})" class="px-3 py-1.5 bg-blue-50 text-blue-600 font-bold rounded-xl">⚙️ تعديل الصلاحيات</button>
+                        <button onclick="revokeLeaderRole(${l.id})" class="px-3 py-1.5 bg-rose-50 text-rose-600 font-bold rounded-xl">🗑️ إزالة من المسؤولين</button>
+                    </div>
                 </div>
-                <div class="flex flex-wrap gap-1 pt-1">
+                <div class="flex flex-wrap gap-1 pt-1 border-t border-slate-100">
                     ${Object.entries(l.permissions).map(([k, v]) => `
                         <span class="px-2 py-0.5 rounded text-[10px] font-bold ${v ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-200 text-slate-500'}">
                             ${k}: ${v ? 'مفعلة ✓' : 'مغلقة ✕'}
@@ -764,6 +771,86 @@ function renderAdminPanels() {
     }
 
     renderGuardDuties();
+}
+
+// تعديل صلاحيات مسؤول معين عبر نافذة منبثقة تفاعلية
+window.openEditLeaderPermissionsModal = function(id) {
+    if (!currentUser || (currentUser.id !== 'root_commander' && !currentUser.positionTitle?.includes('نائب'))) {
+        showAlert('ليس لديك صلاحية تعديل صلاحيات المسؤولين', true);
+        return;
+    }
+    const l = members.find(x => x.id === id);
+    if (!l) return;
+    const p = l.permissions || {};
+
+    let modal = document.getElementById('edit-perms-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'edit-perms-modal';
+        modal.className = 'fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4';
+        document.body.appendChild(modal);
+    }
+
+    modal.innerHTML = `
+        <div class="bg-white rounded-3xl overflow-hidden max-w-lg w-full p-6 space-y-4 shadow-2xl text-xs">
+            <div class="flex justify-between items-center border-b pb-2">
+                <h3 class="font-black text-sm text-slate-900">تعديل صلاحيات المسؤول: ${l.rank} / ${l.name}</h3>
+                <button onclick="document.getElementById('edit-perms-modal').remove()" class="px-3 py-1 bg-slate-100 rounded-xl font-bold">✕ إغلاق</button>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+                <label class="flex items-center gap-2 p-2 bg-slate-50 rounded-xl cursor-pointer"><input type="checkbox" id="edit-perm-add" ${p.addMember ? 'checked' : ''}> إضافة أفراد</label>
+                <label class="flex items-center gap-2 p-2 bg-slate-50 rounded-xl cursor-pointer"><input type="checkbox" id="edit-perm-name" ${p.editName ? 'checked' : ''}> تعديل أسماء وأكواد</label>
+                <label class="flex items-center gap-2 p-2 bg-slate-50 rounded-xl cursor-pointer"><input type="checkbox" id="edit-perm-rank" ${p.editRank ? 'checked' : ''}> تعديل الرتب</label>
+                <label class="flex items-center gap-2 p-2 bg-slate-50 rounded-xl cursor-pointer"><input type="checkbox" id="edit-perm-dismiss" ${p.dismissMember ? 'checked' : ''}> فصل الأفراد</label>
+                <label class="flex items-center gap-2 p-2 bg-slate-50 rounded-xl cursor-pointer"><input type="checkbox" id="edit-perm-warn" ${p.warnMember ? 'checked' : ''}> التحذيرات</label>
+                <label class="flex items-center gap-2 p-2 bg-slate-50 rounded-xl cursor-pointer"><input type="checkbox" id="edit-perm-guards" ${p.manageGuards ? 'checked' : ''}> إدارة الخفارات</label>
+                <label class="flex items-center gap-2 p-2 bg-slate-50 rounded-xl cursor-pointer"><input type="checkbox" id="edit-perm-notes" ${p.manageNotes ? 'checked' : ''}> الملاحظات السرية</label>
+                <label class="flex items-center gap-2 p-2 bg-slate-50 rounded-xl cursor-pointer"><input type="checkbox" id="edit-perm-announce" ${p.canAnnounce ? 'checked' : ''}> التعاميم والتنبيهات</label>
+                <label class="flex items-center gap-2 p-2 bg-slate-50 rounded-xl cursor-pointer"><input type="checkbox" id="edit-perm-credentials" ${p.editCredentials ? 'checked' : ''}> اليوزر والباسورد</label>
+                <label class="flex items-center gap-2 p-2 bg-slate-50 rounded-xl cursor-pointer"><input type="checkbox" id="edit-perm-logs" ${p.viewLogs ? 'checked' : ''}> سجل العمليات (Log)</label>
+                <label class="flex items-center gap-2 p-2 bg-slate-50 rounded-xl cursor-pointer"><input type="checkbox" id="edit-perm-leaderboard" ${p.viewLeaderboard ? 'checked' : ''}> أوقات الجرد والساعات</label>
+            </div>
+            <button onclick="saveLeaderPermissions(${l.id})" class="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-md">حفظ التعديلات</button>
+        </div>
+    `;
+}
+
+window.saveLeaderPermissions = function(id) {
+    const l = members.find(x => x.id === id);
+    if (!l) return;
+
+    l.permissions = {
+        addMember: document.getElementById('edit-perm-add').checked,
+        editName: document.getElementById('edit-perm-name').checked,
+        editRank: document.getElementById('edit-perm-rank').checked,
+        dismissMember: document.getElementById('edit-perm-dismiss').checked,
+        warnMember: document.getElementById('edit-perm-warn').checked,
+        manageGuards: document.getElementById('edit-perm-guards').checked,
+        manageNotes: document.getElementById('edit-perm-notes').checked,
+        canAnnounce: document.getElementById('edit-perm-announce').checked,
+        editCredentials: document.getElementById('edit-perm-credentials').checked,
+        viewLogs: document.getElementById('edit-perm-logs').checked,
+        viewLeaderboard: document.getElementById('edit-perm-leaderboard').checked
+    };
+
+    saveSystemData();
+    document.getElementById('edit-perms-modal').remove();
+    showAlert('تم تحديث صلاحيات المسؤول بنجاح.');
+}
+
+window.revokeLeaderRole = function(id) {
+    if (!currentUser || (currentUser.id !== 'root_commander' && !currentUser.positionTitle?.includes('نائب'))) {
+        showAlert('ليس لديك صلاحية إزالة المسؤولين', true);
+        return;
+    }
+    const l = members.find(x => x.id === id);
+    if (!l) return;
+    if (confirm(`هل أنت متأكد من إزالة الصلاحيات القيادية عن (${l.name}) وإعادته كفرد عادي؟`)) {
+        l.permissions = {};
+        l.positionTitle = 'فرد شرطة عسكرية';
+        saveSystemData();
+        showAlert('تم سحب المنصب القيادي بنجاح.');
+    }
 }
 
 window.editAdminNote = function(id) {
