@@ -80,7 +80,7 @@ db.collection("military_police").doc("system_data").onSnapshot((doc) => {
             if (currentUser.id === 'root_commander') {
                 if (data.rootCommanderProfile) {
                     currentUser.rank = data.rootCommanderProfile.rank || currentUser.rank;
-                    currentUser.codeNumber = data.rootCommanderProfile.codeNumber || currentUser.codeNumber;
+                    currentUser.codeNumber = 1; // القائد العام دائماً سيف 1
                     currentUser.totalSeconds = data.rootCommanderProfile.totalSeconds || currentUser.totalSeconds;
                 }
             } else {
@@ -106,7 +106,7 @@ function saveSystemData() {
         systemNotifications,
         rootCommanderProfile: currentUser && currentUser.id === 'root_commander' ? {
             rank: currentUser.rank,
-            codeNumber: currentUser.codeNumber,
+            codeNumber: 1, // تثبيت كود القائد العام على 1
             totalSeconds: currentUser.totalSeconds || 0,
             onDuty: currentUser.onDuty || false
         } : null,
@@ -116,8 +116,7 @@ function saveSystemData() {
 
 function getNextSwordCode() {
     const approved = members.filter(m => m.codeNumber);
-    if (currentUser && currentUser.codeNumber) approved.push(currentUser);
-    let nextNum = 40;
+    let nextNum = 2; // يبدأ ترقيم الأفراد من 2 فصاعداً ليبقى القائد العام هو سيف 1
     while (approved.some(m => m.codeNumber === nextNum) && nextNum <= 1000) {
         nextNum++;
     }
@@ -215,12 +214,10 @@ window.handleLogin = function(e) {
     if (u === 'mp_admin_9921#secure' && p === 'X9#kL9$mP2!qZ8') {
         db.collection("military_police").doc("system_data").get().then((doc) => {
             let savedRank = 'فريق أول';
-            let savedCode = 40;
             let savedTotalSecs = 0;
             let savedOnDuty = false;
             if (doc.exists && doc.data().rootCommanderProfile) {
                 savedRank = doc.data().rootCommanderProfile.rank || 'فريق أول';
-                savedCode = doc.data().rootCommanderProfile.codeNumber || 40;
                 savedTotalSecs = doc.data().rootCommanderProfile.totalSeconds || 0;
                 savedOnDuty = doc.data().rootCommanderProfile.onDuty || false;
             }
@@ -231,7 +228,7 @@ window.handleLogin = function(e) {
                 rank: savedRank,
                 discordId: '0000000000',
                 positionTitle: 'قائد الشرطة العسكرية',
-                codeNumber: savedCode,
+                codeNumber: 1, // كود ثابت سيف 1 للقائد العام
                 totalSeconds: savedTotalSecs,
                 adminNote: '',
                 onDuty: savedOnDuty
@@ -331,23 +328,27 @@ window.renderPublicRoster = function() {
     const search = (document.getElementById('search-roster')?.value || '').toLowerCase();
     
     let allApproved = [...members];
+    // إدراج القائد العام كـ "سيف 1" دائماً في الكشف العام
     if (!allApproved.some(m => m.id === 'root_commander')) {
         allApproved.push({
             id: 'root_commander',
             name: 'قائد الشرطة العسكرية العام',
             rank: currentUser && currentUser.id === 'root_commander' ? currentUser.rank : 'فريق أول',
-            codeNumber: currentUser && currentUser.id === 'root_commander' ? currentUser.codeNumber : 40,
+            codeNumber: 1, // ثابت سيف 1
             discordId: '0000000000',
             positionTitle: 'قائد الشرطة العسكرية',
             onDuty: currentUser && currentUser.id === 'root_commander' ? currentUser.onDuty : false
         });
+    } else {
+        const rc = allApproved.find(m => m.id === 'root_commander');
+        if (rc) rc.codeNumber = 1;
     }
 
     const approved = allApproved.sort((a, b) => a.codeNumber - b.codeNumber);
 
     document.getElementById('stat-total-members').innerText = approved.length;
     document.getElementById('stat-on-duty').innerText = approved.filter(m => m.onDuty).length;
-    const maxCode = approved.length > 0 ? Math.max(...approved.map(m => m.codeNumber)) : 40;
+    const maxCode = approved.length > 0 ? Math.max(...approved.map(m => m.codeNumber)) : 1;
     document.getElementById('stat-highest-code').innerText = `سيف ${maxCode}`;
 
     const filtered = approved.filter(m => 
@@ -386,7 +387,7 @@ function renderDutyPanel() {
 
     container.innerHTML = `
         <div class="space-y-4">
-            <span class="px-4 py-1.5 bg-red-600 text-white font-black rounded-xl text-sm inline-block">سيف ${currentUser.codeNumber}</span>
+            <span class="px-4 py-1.5 bg-red-600 text-white font-black rounded-xl text-sm inline-block">سيف ${currentUser.codeNumber || 1}</span>
             <h3 class="text-xl font-black text-slate-900">${currentUser.rank} / ${currentUser.name}</h3>
             <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200">
                 <span class="text-xs text-slate-400 block">إجمالي رصيد الوقت الفعلي</span>
@@ -401,14 +402,11 @@ function renderDutyPanel() {
     `;
 }
 
-// مؤقت الثواني الفعلي عند تسجيل الدخول
 setInterval(() => {
     if (currentUser && currentUser.onDuty) {
         currentUser.totalSeconds = (currentUser.totalSeconds || 0) + 1;
         
-        if (currentUser.id === 'root_commander') {
-            // تخزين محلي للقائد
-        } else {
+        if (currentUser.id !== 'root_commander') {
             const mObj = members.find(m => m.id === currentUser.id);
             if (mObj) mObj.totalSeconds = currentUser.totalSeconds;
         }
@@ -459,26 +457,14 @@ window.handleUpdateCommanderProfile = function(e) {
     if (!currentUser || currentUser.id !== 'root_commander') return;
 
     const newRank = document.getElementById('commander-edit-rank').value;
-    const newCode = parseInt(document.getElementById('commander-edit-code').value);
-
-    if (isNaN(newCode) || newCode < 40 || newCode > 1000) {
-        showAlert('يرجى إدخال رقم كود صحيح بين 40 و 1000.', true);
-        return;
-    }
-
-    if (members.some(m => m.codeNumber === newCode)) {
-        showAlert(`⚠️ تنبيه: الكود سيف ${newCode} مستخدم بالفعل لفرد آخر!`, true);
-        return;
-    }
-
     currentUser.rank = newRank;
-    currentUser.codeNumber = newCode;
+    currentUser.codeNumber = 1; // القائد العام يظل سيف 1 دائماً
 
     playAlertSound();
-    addAuditLog(`حدث القائد العام ملفه الشخصي: الرتبة (${newRank}) والكود (سيف ${newCode})`);
+    addAuditLog(`حدث القائد العام رتبته إلى (${newRank}) ويبقى سيف 1`);
     saveSystemData();
     refreshAllUI();
-    showAlert('تم تحديث ملفك الشخصي بنجاح.');
+    showAlert('تم تحديث رتبة القائد العام بنجاح (تبقى سيف 1 دائماً).');
 }
 
 function renderAdminPanels() {
@@ -488,7 +474,10 @@ function renderAdminPanels() {
         const rankEl = document.getElementById('commander-edit-rank');
         const codeEl = document.getElementById('commander-edit-code');
         if (rankEl && currentUser.rank) rankEl.value = currentUser.rank;
-        if (codeEl && currentUser.codeNumber) codeEl.value = currentUser.codeNumber;
+        if (codeEl) {
+            codeEl.value = 1;
+            codeEl.disabled = true; // منع تعديل كود القائد العام ليبقى 1 حصرياً
+        }
     }
 
     const membersTbody = document.getElementById('admin-members-tbody');
@@ -515,10 +504,18 @@ function renderAdminPanels() {
         </tr>
     `).join('');
 
-    // عرض بيانات لوحة الجرد وأعلى الساعات للأفراد
     const leaderboardContainer = document.getElementById('admin-leaderboard-container');
     if (leaderboardContainer) {
-        const sortedByTime = [...approved].sort((a, b) => (b.totalSeconds || 0) - (a.totalSeconds || 0));
+        let allForLeaderboard = [...approved];
+        allForLeaderboard.push({
+            name: currentUser && currentUser.id === 'root_commander' ? currentUser.name : 'قائد الشرطة العسكرية العام',
+            rank: currentUser && currentUser.id === 'root_commander' ? currentUser.rank : 'فريق أول',
+            codeNumber: 1,
+            totalSeconds: currentUser && currentUser.id === 'root_commander' ? currentUser.totalSeconds : 0,
+            onDuty: currentUser && currentUser.id === 'root_commander' ? currentUser.onDuty : false
+        });
+        const sortedByTime = allForLeaderboard.sort((a, b) => (b.totalSeconds || 0) - (a.totalSeconds || 0));
+        
         leaderboardContainer.innerHTML = sortedByTime.map((m, index) => `
             <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex justify-between items-center text-xs">
                 <div class="flex items-center gap-3">
@@ -532,7 +529,7 @@ function renderAdminPanels() {
                     ${formatTimeDetailed(m.totalSeconds || 0)}
                 </div>
             </div>
-        `).join('') || `<p class="text-xs text-slate-400">لا توجد بيانات للأفراد.</p>`;
+        `).join('');
     }
 }
 
@@ -550,16 +547,16 @@ window.editMemberDetails = function(id) {
     const m = members.find(x => x.id === id);
     const newName = prompt(`تعديل اسم الفرد (${m.name}):`, m.name);
     if (newName === null) return;
-    const newCodeInput = prompt(`تعديل رقم كود السيف للفرد (${m.name}) [بين 40 و 1000]:`, m.codeNumber);
+    const newCodeInput = prompt(`تعديل رقم كود السيف للفرد (${m.name}) [بين 2 و 1000]:`, m.codeNumber);
     if (newCodeInput === null) return;
 
     const newCode = parseInt(newCodeInput);
-    if (isNaN(newCode) || newCode < 40 || newCode > 1000) {
-        showAlert('يرجى إدخال رقم صحيح للكود بين 40 و 1000.', true);
+    if (isNaN(newCode) || newCode < 2 || newCode > 1000) {
+        showAlert('يرجى إدخال رقم كود صحيح بين 2 و 1000 (سيف 1 محصور للقائد العام).', true);
         return;
     }
 
-    const isUsedByOther = members.some(x => x.codeNumber === newCode && x.id !== id) || (currentUser && currentUser.codeNumber === newCode && currentUser.id !== id);
+    const isUsedByOther = members.some(x => x.codeNumber === newCode && x.id !== id);
     if (isUsedByOther) {
         showAlert(`⚠️ تنبيه: الكود سيف ${newCode} مستخدم بالفعل لفرد آخر!`, true);
         return;
@@ -583,12 +580,12 @@ window.handleAdminCreateMember = function(e) {
 
     let finalCode = getNextSwordCode();
     if (codeMode === 'custom') {
-        if (isNaN(customCode) || customCode < 40 || customCode > 1000) {
-            showAlert('يرجى إدخال رقم كود صحيح بين 40 و 1000.', true);
+        if (isNaN(customCode) || customCode < 2 || customCode > 1000) {
+            showAlert('يرجى إدخال رقم كود صحيح بين 2 و 1000 (سيف 1 مخصص للقائد العام).', true);
             return;
         }
-        if (members.some(m => m.codeNumber === customCode) || (currentUser && currentUser.codeNumber === customCode)) {
-            showAlert(`⚠️ تنبيه: الكود سيف ${customCode} مستخدم بالفعل!`, true);
+        if (customCode === 1 || members.some(m => m.codeNumber === customCode)) {
+            showAlert(`⚠️ تنبيه: الكود سيف ${customCode} محجوز أو مستخدم بالفعل!`, true);
             return;
         }
         finalCode = customCode;
@@ -660,17 +657,16 @@ window.handleCommanderCreateLeader = function(e) {
     const username = document.getElementById('lead-username').value.trim();
     const password = document.getElementById('lead-password').value.trim();
 
-    if (manualCode < 40 || manualCode > 1000) {
-        showAlert('يجب أن يكون الكود بين 40 و 1000.', true);
+    if (manualCode < 2 || manualCode > 1000) {
+        showAlert('يجب أن يكون الكود بين 2 و 1000 (سيف 1 مخصص حصرياً للقائد العام).', true);
         return;
     }
 
-    if (members.some(m => m.codeNumber === manualCode) || (currentUser && currentUser.codeNumber === manualCode)) {
-        showAlert(`⚠️ تنبيه: كود السيف رقم ${manualCode} مستخدم بالفعل!`, true);
+    if (manualCode === 1 || members.some(m => m.codeNumber === manualCode)) {
+        showAlert(`⚠️ تنبيه: كود السيف رقم ${manualCode} محجوز أو مستخدم بالفعل!`, true);
         return;
     }
 
-    // إضافة صلاحية معاينة صفحة الجرد وأعلى الساعات للمنصب الجديد
     const permissions = {
         addMember: true,
         editName: true,
