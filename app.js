@@ -155,8 +155,12 @@ function hasAnyAdminPerm() {
     return Object.values(currentUser.permissions).some(v => v === true);
 }
 
+// دالة فحص الصلاحية بدقة وإظهار رسالة المنع المطلوبة
 function checkAdminPerm(permKey, permNameMsg = 'الصلاحية المطلوبة') {
-    if (!currentUser) return false;
+    if (!currentUser) {
+        showAlert('يرجى تسجيل الدخول أولاً', true);
+        return false;
+    }
     if (currentUser.id === 'root_commander') return true;
     if (currentUser.permissions && currentUser.permissions[permKey] === true) {
         return true;
@@ -283,36 +287,37 @@ function refreshAllUI() {
 
         if (hasAnyAdminPerm()) {
             adminBtn.classList.remove('hidden');
-            document.getElementById('current-role-badge').innerText = `المنصب: ${currentUser.positionTitle}`;
+            const badge = document.getElementById('current-role-badge');
+            if (badge) badge.innerText = `المنصب: ${currentUser.positionTitle}`;
             
             if (currentUser.id === 'root_commander') {
-                document.getElementById('btn-tab-commander-profile').classList.remove('hidden');
-                document.getElementById('btn-tab-roles').classList.remove('hidden');
-                document.getElementById('btn-tab-leaderboard').classList.remove('hidden');
-                document.getElementById('btn-tab-announcements').classList.remove('hidden');
+                document.getElementById('btn-tab-commander-profile')?.classList.remove('hidden');
+                document.getElementById('btn-tab-roles')?.classList.remove('hidden');
+                document.getElementById('btn-tab-leaderboard')?.classList.remove('hidden');
+                document.getElementById('btn-tab-announcements')?.classList.remove('hidden');
                 document.getElementById('btn-tab-permissions-overview')?.classList.remove('hidden');
             } else {
-                document.getElementById('btn-tab-commander-profile').classList.add('hidden');
+                document.getElementById('btn-tab-commander-profile')?.classList.add('hidden');
                 if (currentUser.positionTitle?.includes('نائب')) {
-                    document.getElementById('btn-tab-roles').classList.remove('hidden');
+                    document.getElementById('btn-tab-roles')?.classList.remove('hidden');
                 }
                 if (currentUser.permissions?.viewLeaderboard) {
-                    document.getElementById('btn-tab-leaderboard').classList.remove('hidden');
+                    document.getElementById('btn-tab-leaderboard')?.classList.remove('hidden');
                 } else {
-                    document.getElementById('btn-tab-leaderboard').classList.add('hidden');
+                    document.getElementById('btn-tab-leaderboard')?.classList.add('hidden');
                 }
                 if (currentUser.permissions?.canAnnounce) {
-                    document.getElementById('btn-tab-announcements').classList.remove('hidden');
+                    document.getElementById('btn-tab-announcements')?.classList.remove('hidden');
                 } else {
-                    document.getElementById('btn-tab-announcements').classList.add('hidden');
+                    document.getElementById('btn-tab-announcements')?.classList.add('hidden');
                 }
                 document.getElementById('btn-tab-permissions-overview')?.classList.remove('hidden');
             }
 
             if (currentUser.id === 'root_commander' || currentUser.permissions?.viewLogs) {
-                document.getElementById('btn-tab-logs').classList.remove('hidden');
+                document.getElementById('btn-tab-logs')?.classList.remove('hidden');
             } else {
-                document.getElementById('btn-tab-logs').classList.add('hidden');
+                document.getElementById('btn-tab-logs')?.classList.add('hidden');
             }
         } else {
             adminBtn.classList.add('hidden');
@@ -336,6 +341,7 @@ function refreshAllUI() {
 
 window.renderPublicRoster = function() {
     const tbody = document.getElementById('public-roster-tbody');
+    if (!tbody) return;
     const search = (document.getElementById('search-roster')?.value || '').toLowerCase();
     
     let allApproved = [...members];
@@ -360,7 +366,6 @@ window.renderPublicRoster = function() {
         }
     }
 
-    // مزامنة حالة الدخول المباشرة للحساب الحالي إذا كان نشطاً في الذاكرة
     if (currentUser && currentUser.id !== 'root_commander') {
         const mObj = allApproved.find(m => m.id === currentUser.id);
         if (mObj) {
@@ -372,10 +377,11 @@ window.renderPublicRoster = function() {
 
     const approved = allApproved.sort((a, b) => a.codeNumber - b.codeNumber);
 
-    document.getElementById('stat-total-members').innerText = approved.length;
-    document.getElementById('stat-on-duty').innerText = approved.filter(m => m.onDuty).length;
+    const totalEl = document.getElementById('stat-total-members');
+    const onDutyEl = document.getElementById('stat-on-duty');
+    if (totalEl) totalEl.innerText = approved.length;
+    if (onDutyEl) onDutyEl.innerText = approved.filter(m => m.onDuty).length;
 
-    // استخراج أعلى رتبة عسكرية نشطة حالياً في الميدان لتحديث العرض فوراً
     const onlineMembers = approved.filter(m => m.onDuty);
     let highestActiveDisplay = "لا يوجد";
     if (onlineMembers.length > 0) {
@@ -414,6 +420,7 @@ window.renderPublicRoster = function() {
 
 function renderDutyPanel() {
     const container = document.getElementById('duty-content');
+    if (!container) return;
     if (!currentUser) {
         container.innerHTML = `<p class="text-xs text-slate-500">سجل الدخول بحساب معتمد للمناوبة.</p><button onclick="switchView('login')" class="mt-3 px-4 py-2 bg-red-600 text-white rounded-xl text-xs">تسجيل الدخول</button>`;
         return;
@@ -642,32 +649,35 @@ function renderAdminPanels() {
     }
 
     const membersTbody = document.getElementById('admin-members-tbody');
-    const approved = [...members].sort((a, b) => a.codeNumber - b.codeNumber);
-    membersTbody.innerHTML = approved.map(m => `
-        <tr>
-            <td class="p-4 font-black text-red-600">سيف ${m.codeNumber}</td>
-            <td class="p-4">
-                <span class="text-[11px] text-red-600 font-bold block">${m.rank}</span>
-                <span class="font-bold text-slate-900">${m.name}</span>
-            </td>
-            <td class="p-4 font-mono text-xs">${m.discordId}</td>
-            <td class="p-4 font-bold text-red-600">${formatTimeDetailed(m.totalSeconds || 0)}</td>
-            <td class="p-4 text-xs">
-                <span class="text-slate-700 block max-w-xs break-words mb-1">${m.adminNote || '<span class="text-slate-400">لا توجد ملاحظة</span>'}</span>
-                <button onclick="editAdminNote(${m.id})" class="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded font-bold text-[10px]">✏️ ملاحظة</button>
-            </td>
-            <td class="p-4 flex flex-wrap gap-1">
-                <button onclick="editMemberDetails(${m.id})" class="px-2 py-1 bg-red-50 text-red-600 rounded text-xs font-bold">تعديل الاسم/الكود</button>
-                <button onclick="openCredentialsModal(${m.id})" class="px-2 py-1 bg-blue-50 text-blue-600 rounded text-xs font-bold">تعديل اليوزر/الباس</button>
-                <button onclick="editMemberRank(${m.id})" class="px-2 py-1 bg-slate-100 rounded text-xs font-bold">رتبة</button>
-                <button onclick="warnMember(${m.id})" class="px-2 py-1 bg-amber-500 text-white rounded text-xs font-bold">تحذير</button>
-                <button onclick="dismissMember(${m.id})" class="px-2 py-1 bg-slate-900 text-white rounded text-xs font-bold">فصل</button>
-            </td>
-        </tr>
-    `).join('');
+    if (membersTbody) {
+        const approved = [...members].sort((a, b) => a.codeNumber - b.codeNumber);
+        membersTbody.innerHTML = approved.map(m => `
+            <tr>
+                <td class="p-4 font-black text-red-600">سيف ${m.codeNumber}</td>
+                <td class="p-4">
+                    <span class="text-[11px] text-red-600 font-bold block">${m.rank}</span>
+                    <span class="font-bold text-slate-900">${m.name}</span>
+                </td>
+                <td class="p-4 font-mono text-xs">${m.discordId}</td>
+                <td class="p-4 font-bold text-red-600">${formatTimeDetailed(m.totalSeconds || 0)}</td>
+                <td class="p-4 text-xs">
+                    <span class="text-slate-700 block max-w-xs break-words mb-1">${m.adminNote || '<span class="text-slate-400">لا توجد ملاحظة</span>'}</span>
+                    <button onclick="editAdminNote(${m.id})" class="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded font-bold text-[10px]">✏️ ملاحظة</button>
+                </td>
+                <td class="p-4 flex flex-wrap gap-1">
+                    <button onclick="editMemberDetails(${m.id})" class="px-2 py-1 bg-red-50 text-red-600 rounded text-xs font-bold">تعديل الاسم/الكود</button>
+                    <button onclick="openCredentialsModal(${m.id})" class="px-2 py-1 bg-blue-50 text-blue-600 rounded text-xs font-bold">تعديل اليوزر/الباس</button>
+                    <button onclick="editMemberRank(${m.id})" class="px-2 py-1 bg-slate-100 rounded text-xs font-bold">رتبة</button>
+                    <button onclick="warnMember(${m.id})" class="px-2 py-1 bg-amber-500 text-white rounded text-xs font-bold">تحذير</button>
+                    <button onclick="dismissMember(${m.id})" class="px-2 py-1 bg-slate-900 text-white rounded text-xs font-bold">فصل</button>
+                </td>
+            </tr>
+        `).join('');
+    }
 
     const warnManageList = document.getElementById('admin-warnings-management-list');
     if (warnManageList) {
+        const approved = [...members].sort((a, b) => a.codeNumber - b.codeNumber);
         let allWarningsHtml = '';
         approved.forEach(m => {
             if (m.warnings && m.warnings.length > 0) {
@@ -689,6 +699,7 @@ function renderAdminPanels() {
 
     const leaderboardContainer = document.getElementById('admin-leaderboard-container');
     if (leaderboardContainer) {
+        const approved = [...members].sort((a, b) => a.codeNumber - b.codeNumber);
         let allForLeaderboard = [...approved];
         allForLeaderboard.push({
             name: currentUser && currentUser.id === 'root_commander' ? currentUser.name : 'قائد الشرطة العسكرية العام',
