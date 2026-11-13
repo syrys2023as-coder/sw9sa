@@ -614,7 +614,7 @@ window.renderMemberDashboard = function() {
                             </div>
                         ` : `
                             <label class="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-md inline-block">
-                                🎥 رفع فيديو إثبات الخفارة
+                                🎥 رفع فيديو إثبات الخفارة (من الملفات)
                                 <input type="file" accept="video/*" class="hidden" onchange="uploadGuardVideo(event, '${activeG.id}')">
                             </label>
                         `}
@@ -656,7 +656,7 @@ window.uploadGuardVideo = function(e, guardId) {
     const file = e.target.files[0];
     if (!file) return;
 
-    showAlert('جاري رفع ومعالجة فيديو الخفارة وحفظه...');
+    showAlert('جاري معالجة ورفع ملف الفيديو...');
 
     const reader = new FileReader();
     reader.onload = function(uploadEvent) {
@@ -670,9 +670,12 @@ window.uploadGuardVideo = function(e, guardId) {
 
         saveSystemData();
         
-        showAlert('تم رفع ومعالجة فيديو الخفارة وتحديث حالته بنجاح.');
+        showAlert('تم رفع الفيديو بنجاح وثبات حالته لدى القائد.');
         renderMemberDashboard();
         renderAdminPanels();
+    };
+    reader.onerror = function() {
+        showAlert('حدث خطأ أثناء قراءة ملف الفيديو، يجدر المحاولة بملف أصغر حجمًا.', true);
     };
     reader.readAsDataURL(file);
 }
