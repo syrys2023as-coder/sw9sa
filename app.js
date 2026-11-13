@@ -11,999 +11,917 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-const logoUrl = "https://i.ibb.co/6PZ8155/logo.jpg";
-
-let academyInfo = { name: "أكاديمية ق", logo: logoUrl };
-let plans = [
-    { id: 1, name: 'الاشتراك الأساسي', price: 250, duration: 'شهرياً', desc: 'مناسب للمبتدئين وتطوير الأساسيات', features: ['2 حصص تدريب أسبوعياً', 'متابعة أداء أساسية', 'زي رياضي مجاني'] },
-    { id: 2, name: 'الاشتراك الاحترافي', price: 450, duration: 'شهرياً', desc: 'تطوير شامل ومكثف', features: ['4 حصص تدريب أسبوعياً', 'تحليل بيانات وتصوير بالفيديو', 'المشاركة في الدوري الداخلي'] },
-    { id: 3, name: 'الاشتراك الذهبي / نخبة', price: 750, duration: 'شهرياً', desc: 'برنامج فردي متكامل', features: ['تدريب يومي متكامل', 'برنامج تغذية ولياقة خاص', 'تقارير PDF شهرية تفصيلية'] }
+const MILITARY_RANKS = [
+    'جندي',
+    'جندي أول',
+    'عريف',
+    'وكيل رقيب',
+    'رقيب',
+    'رقيب أول',
+    'رئيس رقباء',
+    'ملازم',
+    'ملازم أول',
+    'نقيب',
+    'رائد',
+    'مقدم',
+    'عقيد',
+    'عميد',
+    'لواء',
+    'فريق',
+    'فريق أول'
 ];
 
-let players = [];
-let matches = [];
-let notifications = [];
-let staffList = [];
-let dismissedPlayers = [];
-let activityLogs = [];
-let payments = [];
+let members = [];
+let dismissedMembers = [];
+let announcements = [];
+let guardDuties = [];
+let auditLogs = [];
+let systemNotifications = [];
 let currentUser = null;
-let chartInstance = null;
 
-function showToast(message, type = 'error') {
-    let container = document.getElementById('toast-container');
-    if (!container) {
-        container = document.createElement('div');
-        container.id = 'toast-container';
-        container.className = 'fixed bottom-5 left-5 z-50 flex flex-col gap-2 pointer-events-none';
-        document.body.appendChild(container);
+function populateRankSelects() {
+    const optionsHtml = MILITARY_RANKS.map(r => `<option value="${r}">${r}</option>`).join('');
+    const addRank = document.getElementById('add-m-rank');
+    const commanderRank = document.getElementById('commander-edit-rank');
+    if (addRank) addRank.innerHTML = optionsHtml;
+    if (commanderRank) commanderRank.innerHTML = optionsHtml;
+    
+    document.querySelectorAll('.lead-rank-select').forEach(el => {
+        el.innerHTML = optionsHtml;
+    });
+}
+populateRankSelects();
+
+function playAlertSound() {
+    const sound = document.getElementById('alert-sound');
+    if (sound) {
+        sound.currentTime = 0;
+        sound.play().catch(e => console.log("Audio play blocked"));
     }
-
-    const toast = document.createElement('div');
-    const isSuccess = type === 'success';
-    toast.className = `pointer-events-auto px-4 py-3 rounded-2xl text-xs font-bold text-white shadow-2xl transition-all duration-300 transform translate-y-2 opacity-0 flex items-center gap-2 ${
-        isSuccess ? 'bg-blue-600 border border-blue-400/30' : 'bg-rose-600 border border-rose-400/30'
-    }`;
-    
-    toast.innerHTML = `<i class="fa-solid ${isSuccess ? 'fa-circle-check text-blue-200' : 'fa-circle-exclamation text-rose-200'} text-sm"></i> <span>${message}</span>`;
-    
-    container.appendChild(toast);
-    
-    setTimeout(() => {
-        toast.classList.remove('translate-y-2', 'opacity-0');
-    }, 10);
-
-    setTimeout(() => {
-        toast.classList.add('translate-y-2', 'opacity-0');
-        setTimeout(() => toast.remove(), 300);
-    }, 3500);
 }
 
-db.collection("academy_data").doc("main_data").onSnapshot((doc) => {
+function pushNotification(title, text) {
+    systemNotifications.unshift({
+        id: Date.now(),
+        title,
+        text,
+        time: new Date().toLocaleTimeString('ar-SA')
+    });
+    if (systemNotifications.length > 20) systemNotifications.pop();
+}
+
+function addAuditLog(actionText) {
+    const authorName = currentUser ? `${currentUser.rank || ''} ${currentUser.name}` : 'النظام';
+    auditLogs.unshift({
+        id: Date.now(),
+        text: actionText,
+        author: authorName,
+        date: new Date().toLocaleString('ar-SA')
+    });
+    if (auditLogs.length > 100) auditLogs.pop();
+}
+
+db.collection("military_police").doc("system_data").onSnapshot((doc) => {
     if (doc.exists) {
         const data = doc.data();
-        academyInfo = { name: "أكاديمية ق", logo: logoUrl };
-        plans = data.plans || plans;
-        players = data.players || [];
-        matches = data.matches || [];
-        notifications = data.notifications || [];
-        staffList = data.staffList || [];
-        dismissedPlayers = data.dismissedPlayers || [];
-        activityLogs = data.activityLogs || [];
-        payments = data.payments || [];
-        
-        applyAcademyBranding();
-        renderPlans();
-        renderAdminTables();
-        renderSchedule();
-        renderNotifications();
-        renderStaffPermissionsUI();
-        renderActivityLogs();
-        renderTeammates();
-        updateAuthUI();
+        members = data.members || [];
+        dismissedMembers = data.dismissedMembers || [];
+        announcements = data.announcements || [];
+        guardDuties = data.guardDuties || [];
+        auditLogs = data.auditLogs || [];
+        systemNotifications = data.systemNotifications || [];
 
-        if (currentUser && currentUser.role === 'player') {
-            const updatedMe = players.find(p => p.id === currentUser.data.id);
-            if (updatedMe) {
-                currentUser.data = updatedMe;
-                loadPlayerDataIntoProfile();
+        if (currentUser) {
+            if (currentUser.id === 'root_commander') {
+                if (data.rootCommanderProfile) {
+                    currentUser.rank = data.rootCommanderProfile.rank || currentUser.rank;
+                    currentUser.codeNumber = data.rootCommanderProfile.codeNumber || currentUser.codeNumber;
+                }
+            } else {
+                const fresh = members.find(m => m.id === currentUser.id);
+                if (fresh) {
+                    currentUser.rank = fresh.rank;
+                    currentUser.codeNumber = fresh.codeNumber;
+                    currentUser.totalSeconds = fresh.totalSeconds;
+                }
             }
         }
+        refreshAllUI();
     }
 });
 
-function saveData() {
-    db.collection("academy_data").doc("main_data").set({
-        academyInfo, plans, players, matches, notifications, staffList, dismissedPlayers, activityLogs, payments,
+function saveSystemData() {
+    db.collection("military_police").doc("system_data").set({
+        members,
+        dismissedMembers,
+        announcements,
+        guardDuties,
+        auditLogs,
+        systemNotifications,
+        rootCommanderProfile: currentUser && currentUser.id === 'root_commander' ? {
+            rank: currentUser.rank,
+            codeNumber: currentUser.codeNumber,
+            totalSeconds: currentUser.totalSeconds || 0,
+            onDuty: currentUser.onDuty || false,
+            dutyStartTime: currentUser.dutyStartTime || null
+        } : null,
         updatedAt: Date.now()
     }).catch(err => console.error(err));
 }
 
-function addLog(actionText) {
-    const actor = currentUser ? (currentUser.name || currentUser.username || 'مدير النظام') : 'زائر';
-    const timeStr = new Date().toLocaleString('ar-SA');
-    activityLogs.unshift({ id: Date.now(), text: actionText, actor, time: timeStr });
-    if (activityLogs.length > 100) activityLogs.pop();
-    saveData();
+function getNextSwordCode() {
+    const approved = members.filter(m => m.codeNumber);
+    if (currentUser && currentUser.codeNumber) approved.push(currentUser);
+    let nextNum = 40;
+    while (approved.some(m => m.codeNumber === nextNum) && nextNum <= 1000) {
+        nextNum++;
+    }
+    return nextNum;
 }
 
-function applyAcademyBranding() {
-    const nameEls = document.querySelectorAll('.academy-name-display');
-    nameEls.forEach(el => el.innerText = "أكاديمية ق");
-
-    const logoEls = document.querySelectorAll('.academy-logo-display');
-    logoEls.forEach(el => {
-        el.innerHTML = `<img src="${logoUrl}" alt="أكاديمية ق" class="w-full h-full object-cover">`;
-    });
+function showAlert(msg, isError = false) {
+    playAlertSound();
+    const box = document.createElement('div');
+    box.className = `fixed bottom-5 left-5 z-50 px-5 py-3 rounded-2xl text-xs font-bold text-white shadow-xl transition-all ${isError ? 'bg-slate-900 border-r-4 border-red-600' : 'bg-red-600'}`;
+    box.innerText = msg;
+    document.body.appendChild(box);
+    setTimeout(() => box.remove(), 3500);
 }
 
-window.switchView = function(viewId) {
-    ['home', 'login', 'register', 'player', 'schedule', 'pricing', 'admin', 'teammates'].forEach(v => {
+window.toggleCustomCodeInput = function(selectId, inputId) {
+    const mode = document.getElementById(selectId).value;
+    const wrap = document.getElementById(`${inputId}`);
+    if (mode === 'custom') wrap.classList.remove('hidden');
+    else wrap.classList.add('hidden');
+}
+
+function hasAnyAdminPerm() {
+    if (!currentUser) return false;
+    if (currentUser.id === 'root_commander') return true;
+    if (!currentUser.permissions) return false;
+    return Object.values(currentUser.permissions).some(v => v === true);
+}
+
+function checkAdminPerm(permKey) {
+    if (!currentUser) return false;
+    if (currentUser.id === 'root_commander') return true;
+    if (!currentUser.permissions) return false;
+    return currentUser.permissions[permKey] === true;
+}
+
+window.switchView = function(view) {
+    ['home', 'login', 'duty', 'admin', 'member-dashboard'].forEach(v => {
         const el = document.getElementById(`view-${v}`);
         if (el) el.classList.add('hidden');
     });
-    const target = document.getElementById(`view-${viewId}`);
-    if (target) target.classList.remove('hidden');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    if (view === 'duty') renderDutyPanel();
+    else if (view === 'admin') {
+        if (!hasAnyAdminPerm()) { switchView('login'); return; }
+        renderAdminPanels();
+    } else if (view === 'member-dashboard') {
+        if (!currentUser) { switchView('login'); return; }
+        renderMemberDashboard();
+    }
+    document.getElementById(`view-${view}`).classList.remove('hidden');
 }
 
-window.switchAdminTab = function(tabId) {
-    document.querySelectorAll('.admin-sub-page').forEach(el => el.classList.add('hidden'));
-    document.querySelectorAll('.admin-tab-btn').forEach(btn => {
-        btn.classList.remove('bg-blue-600', 'text-white');
-        btn.classList.add('bg-slate-800', 'text-slate-300');
-    });
-    document.getElementById(tabId).classList.remove('hidden');
-    const activeBtn = document.getElementById(`tabbtn-${tabId.replace('sub-', '')}`);
-    if (activeBtn) {
-        activeBtn.classList.remove('bg-slate-800', 'text-slate-300');
-        activeBtn.classList.add('bg-blue-600', 'text-white');
-    }
-}
-
-function hasPermission(permKey) {
-    if (!currentUser) return false;
-    if (currentUser.role === 'admin') return true;
-    if (currentUser.role === 'staff') {
-        const staffMember = staffList.find(s => s.username === currentUser.username);
-        return staffMember && staffMember.permissions && staffMember.permissions[permKey] === true;
-    }
-    return false;
-}
-
-window.renderSchedule = function() {
-    const list = document.getElementById('schedule-cards-list');
-    const adminBtnContainer = document.getElementById('admin-add-match-btn-container');
-    if (!list) return;
-
-    const canManageMatches = (currentUser && currentUser.role === 'admin') || hasPermission('manageMatches');
-
-    if (canManageMatches) {
-        if (adminBtnContainer) {
-            adminBtnContainer.innerHTML = `<button onclick="document.getElementById('modal-add-match').classList.remove('hidden')" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs transition">+ إضافة مباراة أو تدريب</button>`;
-        }
-    } else {
-        if (adminBtnContainer) adminBtnContainer.innerHTML = '';
-    }
-
-    if (matches.length === 0) {
-        list.innerHTML = `<div class="col-span-2 text-center p-8 bg-slate-900 border border-slate-800 rounded-2xl text-slate-400">لا توجد مباريات أو تدريبات مسجلة حالياً.</div>`;
+window.switchAdminTab = function(tabId, btnEl) {
+    if (tabId === 'tab-logs' && !checkAdminPerm('viewLogs') && currentUser?.id !== 'root_commander') {
+        showAlert('ليس لديك صلاحية معاينة سجل العمليات (Log)', true);
         return;
     }
 
-    list.innerHTML = matches.map(m => `
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex justify-between items-center">
-            <div class="space-y-1">
-                <span class="text-xs px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 font-bold">${m.location}</span>
-                <h4 class="font-bold text-white text-base"><span class="academy-name-display">أكاديمية ق</span> vs ${m.opponent}</h4>
-                <p class="text-xs text-slate-400"><i class="fa-regular fa-clock ml-1"></i> ${m.date}</p>
-            </div>
-            <div class="flex items-center gap-3">
-                <div class="text-left bg-slate-950 px-4 py-2 rounded-xl border border-slate-800">
-                    <span class="font-black text-amber-400 text-sm">${m.score}</span>
-                </div>
-                ${canManageMatches ? `<button onclick="deleteMatch(${m.id})" class="text-rose-400 hover:text-rose-300 p-2 text-xs"><i class="fa-solid fa-trash"></i></button>` : ''}
-            </div>
-        </div>
-    `).join('');
-}
-
-window.handleAddMatch = function(e) {
-    e.preventDefault();
-    const opponent = document.getElementById('match-opponent').value.trim();
-    const datetime = document.getElementById('match-datetime').value;
-    const location = document.getElementById('match-location').value.trim();
-    matches.push({ id: Date.now(), opponent, date: datetime.replace('T', ' '), location, score: 'قادمة' });
-    addLog(`أضاف مباراة أو تدريب جديد ضد: ${opponent}`);
-    saveData();
-    renderSchedule();
-    closeModal('modal-add-match');
-    showToast('تمت إضافة المباراة للجدول بنجاح!', 'success');
-}
-
-window.deleteMatch = function(id) {
-    if (confirm('هل أنت متأكد من حذف هذه المباراة؟')) {
-        matches = matches.filter(m => m.id !== id);
-        addLog(`قام بحذف مباراة من الجدول`);
-        saveData();
-        renderSchedule();
-        showToast('تم حذف المباراة.', 'success');
+    document.querySelectorAll('.admin-pane').forEach(p => p.classList.add('hidden'));
+    document.querySelectorAll('.admin-tab').forEach(b => {
+        b.classList.remove('bg-red-600', 'text-white');
+        b.classList.add('bg-slate-100', 'text-slate-700');
+    });
+    document.getElementById(tabId).classList.remove('hidden');
+    if (btnEl) {
+        btnEl.classList.remove('bg-slate-100', 'text-slate-700');
+        btnEl.classList.add('bg-red-600', 'text-white');
     }
 }
 
-function bootApp() {
-    updateAuthUI();
-    applyAcademyBranding();
-    renderPlans();
-    renderAdminTables();
-    renderSchedule();
-    renderNotifications();
-    renderStaffPermissionsUI();
-    renderActivityLogs();
-    renderTeammates();
-    initChart();
-    window.switchView('home');
-}
-
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bootApp);
-} else {
-    bootApp();
-}
-
-window.renderPlans = function() {
-    const publicContainer = document.getElementById('public-pricing-plans-container');
-    const regPlanSelect = document.getElementById('reg-plan');
-    const adminPlansContainer = document.getElementById('admin-plans-manage-container');
-
-    if (publicContainer) {
-        publicContainer.innerHTML = plans.map(p => `
-            <div class="bg-slate-900 border ${p.id === 2 ? 'border-2 border-blue-500 shadow-xl' : 'border-slate-800'} rounded-3xl p-6 flex flex-col justify-between relative">
-                ${p.id === 2 ? '<span class="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white font-black text-xs px-3 py-1 rounded-full">الأكثر طلباً</span>' : ''}
-                <div>
-                    <h3 class="text-lg font-bold text-white">${p.name}</h3>
-                    <p class="text-xs text-slate-400 mt-1">${p.desc}</p>
-                    <div class="my-4 text-3xl font-black text-blue-400">${p.price} <span class="text-xs text-slate-400 font-normal">ر.س / ${p.duration}</span></div>
-                    <ul class="text-xs text-slate-300 space-y-2 border-t border-slate-800 pt-4">
-                        ${p.features.map(f => `<li><i class="fa-solid fa-check text-blue-400 ml-2"></i> ${f}</li>`).join('')}
-                    </ul>
-                </div>
-                <button onclick="switchView('register')" class="mt-6 w-full py-2.5 ${p.id === 2 ? 'bg-blue-600 text-white' : 'bg-slate-800 text-white'} font-bold rounded-xl transition text-xs">اشتراك الآن</button>
-            </div>
-        `).join('');
-    }
-
-    if (regPlanSelect) {
-        regPlanSelect.innerHTML = plans.map(p => `<option value="${p.name}">${p.name} (${p.price} ر.س)</option>`).join('');
-    }
-
-    if (adminPlansContainer) {
-        const canManagePlans = hasPermission('managePlans');
-        adminPlansContainer.innerHTML = plans.map(p => `
-            <div class="bg-slate-950 border border-slate-800 p-4 rounded-2xl flex flex-col justify-between">
-                <div>
-                    <div class="flex justify-between items-center mb-2">
-                        <h4 class="font-bold text-white text-sm">${p.name}</h4>
-                        <span class="text-blue-400 font-black text-base">${p.price} ر.س</span>
-                    </div>
-                    <p class="text-xs text-slate-300 mt-2">${p.desc}</p>
-                </div>
-                ${canManagePlans ? `
-                <div class="flex gap-2 mt-4 pt-3 border-t border-slate-900">
-                    <button onclick="editPlan(${p.id})" class="flex-1 py-1 bg-slate-900 text-xs text-slate-200 rounded-lg">تعديل</button>
-                    <button onclick="deletePlan(${p.id})" class="py-1 px-3 bg-rose-600/20 text-rose-400 text-xs rounded-lg">حذف</button>
-                </div>` : ''}
-            </div>
-        `).join('');
-    }
-}
-
-window.openAddPlanModal = function() {
-    if (!hasPermission('managePlans')) { showToast('ليس لديك صلاحية تعديل الباقات!', 'error'); return; }
-    document.getElementById('plan-edit-id').value = '';
-    document.getElementById('modal-plan-title').innerText = 'إضافة باقة اشتراك جديدة';
-    document.getElementById('plan-name').value = '';
-    document.getElementById('plan-price').value = '';
-    document.getElementById('plan-desc').value = '';
-    document.getElementById('plan-features').value = '';
-    document.getElementById('modal-add-plan').classList.remove('hidden');
-}
-
-window.editPlan = function(id) {
-    if (!hasPermission('managePlans')) { showToast('ليس لديك صلاحية!', 'error'); return; }
-    const p = plans.find(x => x.id === id);
-    if (!p) return;
-    document.getElementById('plan-edit-id').value = p.id;
-    document.getElementById('modal-plan-title').innerText = 'تعديل باقة الاشتراك';
-    document.getElementById('plan-name').value = p.name;
-    document.getElementById('plan-price').value = p.price;
-    document.getElementById('plan-duration').value = p.duration || 'شهرياً';
-    document.getElementById('plan-desc').value = p.desc;
-    document.getElementById('plan-features').value = p.features.join(', ');
-    document.getElementById('modal-add-plan').classList.remove('hidden');
-}
-
-window.handleSavePlan = function(e) {
-    e.preventDefault();
-    if (!hasPermission('managePlans')) return;
-    const editId = document.getElementById('plan-edit-id').value;
-    const name = document.getElementById('plan-name').value.trim();
-    const price = parseFloat(document.getElementById('plan-price').value);
-    const duration = document.getElementById('plan-duration').value;
-    const desc = document.getElementById('plan-desc').value.trim();
-    const features = document.getElementById('plan-features').value.split(',').map(f => f.trim()).filter(Boolean);
-
-    if (editId) {
-        const p = plans.find(x => x.id === parseInt(editId));
-        if (p) { p.name = name; p.price = price; p.duration = duration; p.desc = desc; p.features = features; }
-        addLog(`قام بتعديل الباقة: ${name}`);
-    } else {
-        plans.push({ id: Date.now(), name, price, duration, desc, features });
-        addLog(`قام بإضافة باقة جديدة: ${name}`);
-    }
-    saveData();
-    renderPlans();
-    closeModal('modal-add-plan');
-    showToast('تم حفظ الباقة بنجاح!', 'success');
-}
-
-window.deletePlan = function(id) {
-    if (!hasPermission('managePlans')) return;
-    if (confirm('هل أنت متأكد من الحذف؟')) {
-        plans = plans.filter(p => p.id !== id);
-        addLog(`قام بحذف باقة اشتراك`);
-        saveData();
-        renderPlans();
-        showToast('تم الحذف.', 'success');
-    }
+window.copyDiscordId = function(discordId) {
+    navigator.clipboard.writeText(discordId).then(() => {
+        showAlert(`تم نسخ آيدي الديسكورد: ${discordId}`);
+    });
 }
 
 window.handleLogin = function(e) {
     e.preventDefault();
-    const u = document.getElementById('login-username').value.trim();
-    const p = document.getElementById('login-password').value.trim();
+    const u = document.getElementById('login-user').value.trim();
+    const p = document.getElementById('login-pass').value.trim();
 
     if (u === 'admin' && p === 'admin123') {
-        currentUser = { role: 'admin', name: 'المدير العام' };
-        addLog(`سجل الدخول كـ (مدير عام)`);
-        updateAuthUI();
-        showToast('تم تسجيل الدخول كمدير بنجاح!', 'success');
-        switchView('admin');
+        db.collection("military_police").doc("system_data").get().then((doc) => {
+            let savedRank = 'فريق أول';
+            let savedCode = 40;
+            let savedTotalSecs = 0;
+            let savedOnDuty = false;
+            let savedDutyStart = null;
+            if (doc.exists && doc.data().rootCommanderProfile) {
+                savedRank = doc.data().rootCommanderProfile.rank || 'فريق أول';
+                savedCode = doc.data().rootCommanderProfile.codeNumber || 40;
+                savedTotalSecs = doc.data().rootCommanderProfile.totalSeconds || 0;
+                savedOnDuty = doc.data().rootCommanderProfile.onDuty || false;
+                savedDutyStart = doc.data().rootCommanderProfile.dutyStartTime || null;
+            }
+            currentUser = {
+                id: 'root_commander',
+                name: 'قائد الشرطة العسكرية',
+                username: 'admin',
+                rank: savedRank,
+                discordId: '0000000000',
+                positionTitle: 'قائد الشرطة العسكرية',
+                codeNumber: savedCode,
+                adminNote: '',
+                totalSeconds: savedTotalSecs,
+                onDuty: savedOnDuty,
+                dutyStartTime: savedDutyStart
+            };
+            showAlert('تم تسجيل الدخول كقائد عام');
+            refreshAllUI();
+            switchAdminTab('tab-commander-profile', document.getElementById('btn-tab-commander-profile'));
+            switchView('admin');
+        });
         return;
     }
 
-    const foundStaff = staffList.find(s => s.username.toLowerCase() === u.toLowerCase() && s.password === p);
-    if (foundStaff) {
-        currentUser = { role: 'staff', username: foundStaff.username, name: foundStaff.name };
-        addLog(`سجل الدخول المشرف: ${foundStaff.name}`);
-        updateAuthUI();
-        showToast(`أهلاً بك مشرف النظام ${foundStaff.name}!`, 'success');
-        switchView('admin');
+    const found = members.find(m => m.username.toLowerCase() === u.toLowerCase() && m.password === p);
+    if (!found) {
+        showAlert('بيانات الدخول غير صحيحة!', true);
         return;
     }
 
-    const foundPlayer = players.find(x => x.username.toLowerCase() === u.toLowerCase() && x.password === p);
-    if (foundPlayer) {
-        if (foundPlayer.status !== 'معتمد') {
-            showToast('حسابك بانتظار موافقة الإدارة أو غير معتمد.', 'error');
-            return;
-        }
-        if (foundPlayer.frozen) {
-            showToast('حسابك مجمد حالياً.', 'error');
-            return;
-        }
-        currentUser = { role: 'player', data: foundPlayer, name: foundPlayer.name };
-        addLog(`سجل اللاعب دخولاً: ${foundPlayer.name}`);
-        updateAuthUI();
-        loadPlayerDataIntoProfile();
-        showToast(`أهلاً بك كابتن ${foundPlayer.name}!`, 'success');
-        switchView('player');
-    } else {
-        showToast('اسم المستخدم أو كلمة المرور غير صحيحة.', 'error');
-    }
-}
-
-window.handleSendOTP = function(e) {
-    e.preventDefault();
-    const name = document.getElementById('reg-name').value.trim();
-    const username = document.getElementById('reg-username').value.trim();
-    const phone = document.getElementById('reg-phone').value.trim();
-    const age = parseInt(document.getElementById('reg-age').value);
-    const position = document.getElementById('reg-position').value;
-    const plan = document.getElementById('reg-plan').value;
-    const password = document.getElementById('reg-password').value;
-
-    if (players.some(p => p.username.toLowerCase() === username.toLowerCase())) {
-        showToast('اسم المستخدم مسجل مسبقاً.', 'error');
-        return;
-    }
-
-    const newPlayer = {
-        id: Date.now(),
-        name, username, phone, position, plan, age, password,
-        status: 'بانتظار الموافقة',
-        frozen: false,
-        points: 0,
-        photoUrl: '',
-        displayLocation: 'both',
-        permission: 'لاعب عادي',
-        warnings: []
-    };
-
-    players.push(newPlayer);
-    addLog(`سجل حساب جديد بانتظار الموافقة: ${name}`);
-    saveData();
-    renderAdminTables();
-    showToast('تم إرسال طلب انضمامك للإدارة بنجاح!', 'success');
-    document.getElementById('register-form').reset();
-    switchView('login');
+    currentUser = found;
+    playAlertSound();
+    showAlert(`أهلاً بك ${found.rank} / ${found.name}`);
+    refreshAllUI();
+    
+    if (hasAnyAdminPerm()) switchView('admin');
+    else switchView('member-dashboard');
 }
 
 window.handleLogout = function() {
-    if (currentUser) addLog(`سجل خروج من النظام: ${currentUser.name || 'مستخدم'}`);
     currentUser = null;
-    updateAuthUI();
-    renderTeammates();
-    showToast('تم تسجيل الخروج.', 'success');
+    refreshAllUI();
     switchView('home');
+    showAlert('تم تسجيل الخروج.');
 }
 
-function updateAuthUI() {
-    const authSec = document.getElementById('auth-section');
-    const adminNavBtn = document.getElementById('admin-nav-btn');
+function refreshAllUI() {
+    const authDiv = document.getElementById('auth-buttons');
+    const adminBtn = document.getElementById('nav-admin-btn');
+    const memberBtn = document.getElementById('nav-member-btn');
 
     if (currentUser) {
-        if (currentUser.role === 'admin' || currentUser.role === 'staff') {
-            if (adminNavBtn) adminNavBtn.classList.remove('hidden');
-            const roleName = currentUser.role === 'admin' ? 'مدير الأكاديمية' : `مشرف: ${currentUser.name}`;
-            authSec.innerHTML = `<span class="text-xs font-bold text-amber-400 bg-amber-400/10 px-3 py-1.5 rounded-xl border border-amber-400/20"><i class="fa-solid fa-user-shield ml-1"></i> ${roleName}</span><button onclick="handleLogout()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 font-bold rounded-xl transition">خروج</button>`;
+        authDiv.innerHTML = `
+            <span class="text-xs font-bold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-xl">
+                ${currentUser.name} | سيف ${currentUser.codeNumber || ''}
+            </span>
+            <button onclick="handleLogout()" class="px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded-xl">خروج</button>
+        `;
+        if (currentUser.id !== 'root_commander') memberBtn.classList.remove('hidden');
+        else memberBtn.classList.add('hidden');
+
+        if (hasAnyAdminPerm()) {
+            adminBtn.classList.remove('hidden');
+            document.getElementById('current-role-badge').innerText = `المنصب: ${currentUser.positionTitle}`;
+            
+            if (currentUser.id === 'root_commander') {
+                document.getElementById('btn-tab-commander-profile').classList.remove('hidden');
+                document.getElementById('btn-tab-roles').classList.remove('hidden');
+            } else {
+                document.getElementById('btn-tab-commander-profile').classList.add('hidden');
+                if (currentUser.positionTitle?.includes('نائب')) {
+                    document.getElementById('btn-tab-roles').classList.remove('hidden');
+                }
+            }
+
+            if (currentUser.id === 'root_commander' || checkAdminPerm('viewLogs')) {
+                document.getElementById('btn-tab-logs').classList.remove('hidden');
+            } else {
+                document.getElementById('btn-tab-logs').classList.add('hidden');
+            }
         } else {
-            if (adminNavBtn) adminNavBtn.classList.add('hidden');
-            authSec.innerHTML = `<button onclick="switchView('player')" class="text-xs font-bold text-blue-400 bg-blue-400/10 px-3 py-1.5 rounded-xl border border-blue-400/20"><i class="fa-solid fa-user ml-1"></i> ${currentUser.data.name}</button><button onclick="handleLogout()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 font-bold rounded-xl transition">خروج</button>`;
+            adminBtn.classList.add('hidden');
         }
     } else {
-        if (adminNavBtn) adminNavBtn.classList.add('hidden');
-        authSec.innerHTML = `<button onclick="switchView('login')" class="text-xs font-bold text-slate-300 hover:text-white px-3 py-1.5 transition">دخول</button><button onclick="switchView('register')" class="text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl transition shadow-md">تسجيل جديد</button>`;
+        adminBtn.classList.add('hidden');
+        memberBtn.classList.add('hidden');
+        authDiv.innerHTML = `
+            <button onclick="switchView('login')" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow-md transition">تسجيل الدخول</button>
+        `;
     }
-    renderTeammates();
+
+    renderPublicRoster();
+    renderAdminPanels();
+    renderGuardDuties();
+    renderDutyPanel();
 }
 
-window.renderAdminTables = function() {
-    const pendingTbody = document.getElementById('admin-pending-tbody');
-    const pendingList = players.filter(p => p.status === 'بانتظار الموافقة');
-    const canApprove = hasPermission('approvePlayers');
-
-    if (pendingTbody) {
-        pendingTbody.innerHTML = pendingList.length === 0 ? `<tr><td colspan="6" class="p-6 text-center text-slate-500">لا توجد طلبات جديدة</td></tr>` : pendingList.map(p => `
-            <tr class="hover:bg-slate-800/50 border-b border-slate-800">
-                <td class="p-3 font-bold text-white">${p.name}</td>
-                <td class="p-3 text-slate-400">${p.username}</td>
-                <td class="p-3 font-mono">${p.phone}</td>
-                <td class="p-3">${p.position} (${p.age} سنة)</td>
-                <td class="p-3"><span class="px-2 py-0.5 bg-blue-500/10 text-blue-400 rounded font-bold">${p.plan}</span></td>
-                <td class="p-3 flex gap-2">
-                    ${canApprove ? `
-                        <button onclick="approveMember(${p.id})" class="px-3 py-1 bg-blue-600 text-white font-bold rounded-lg text-xs">قبول</button>
-                        <button onclick="rejectMember(${p.id})" class="px-3 py-1 bg-rose-600 text-white rounded-lg text-xs font-bold">رفض</button>
-                    ` : '<span class="text-xs text-slate-500">غير مسموح</span>'}
-                </td>
-            </tr>
-        `).join('');
-    }
-
-    const approvedTbody = document.getElementById('admin-players-tbody');
-    const approvedList = players.filter(p => p.status === 'معتمد');
-
-    const canPoints = hasPermission('managePoints');
-    const canFreeze = hasPermission('freezePlayer');
-    const canDismiss = hasPermission('dismissPlayer');
-    const canRename = hasPermission('renamePlayer');
-    const canWarn = hasPermission('warnPlayer');
-    const canPhoto = hasPermission('managePlayerPhoto');
-
-    if (approvedTbody) {
-        approvedTbody.innerHTML = approvedList.length === 0 ? `<tr><td colspan="6" class="p-6 text-center text-slate-500">لا يوجد لاعبين معتمدين حالياً</td></tr>` : approvedList.map(p => `
-            <tr class="hover:bg-slate-800/50 border-b border-slate-800">
-                <td class="p-3 font-bold text-white flex items-center gap-2">
-                    <div class="w-8 h-8 rounded-full bg-blue-500/10 text-blue-400 font-black overflow-hidden flex items-center justify-center border border-blue-500/30 text-xs">
-                        ${p.photoUrl ? `<img src="${p.photoUrl}" class="w-full h-full object-cover">` : (p.name ? p.name.charAt(0) : 'ل')}
-                    </div>
-                    <div>
-                        ${p.name} 
-                        ${canRename ? `<button onclick="promptRename(${p.id})" class="text-blue-400 hover:text-blue-300 ml-2 text-[10px] bg-blue-500/10 px-1.5 py-0.5 rounded">تعديل الاسم</button>` : ''}
-                        ${canPhoto ? `<button onclick="promptPlayerPhoto(${p.id})" class="text-sky-400 hover:text-sky-300 ml-1 text-[10px] bg-sky-500/10 px-1.5 py-0.5 rounded">صورة</button>` : ''}
-                        <span class="block text-[10px] text-slate-400 font-mono">@${p.username} ${p.warnings && p.warnings.length > 0 ? `| <span class="text-rose-400 font-bold">تحذيرات: ${p.warnings.length}</span>` : ''}</span>
-                    </div>
-                </td>
-                <td class="p-3">
-                    <div class="flex items-center gap-1">
-                        <span class="text-xs text-slate-200">${p.position}</span>
-                        ${canRename ? `<button onclick="promptChangePosition(${p.id})" class="text-amber-400 hover:text-amber-300 text-[10px] bg-amber-500/10 px-1.5 py-0.5 rounded"><i class="fa-solid fa-pen"></i></button>` : ''}
-                    </div>
-                </td>
-                <td class="p-3">
-                    <select onchange="changePlayerDisplayLocation(${p.id}, this.value)" class="bg-slate-950 border border-slate-800 rounded px-2 py-1 text-[11px] text-blue-400 font-bold">
-                        <option value="both" ${(!p.displayLocation || p.displayLocation === 'both') ? 'selected' : ''}>كلا المكانين</option>
-                        <option value="home" ${p.displayLocation === 'home' ? 'selected' : ''}>الرئيسية فقط</option>
-                        <option value="teammates" ${p.displayLocation === 'teammates' ? 'selected' : ''}>قائمة اللاعبين فقط</option>
-                    </select>
-                </td>
-                <td class="p-3 font-bold text-amber-400">${p.points} نقطة</td>
-                <td class="p-3">
-                    <span class="px-2 py-1 rounded text-xs ${p.frozen ? 'bg-amber-500/20 text-amber-400' : 'bg-blue-500/20 text-blue-400'}">${p.frozen ? 'مجمد' : 'نشط'}</span>
-                </td>
-                <td class="p-3 space-x-1 space-x-reverse flex flex-wrap gap-1">
-                    ${canFreeze ? `<button onclick="toggleFreezePlayer(${p.id})" class="px-2 py-1 bg-slate-800 text-xs rounded">${p.frozen ? 'إلغاء' : 'تجميد'}</button>` : ''}
-                    ${canDismiss ? `<button onclick="dismissPlayer(${p.id})" class="px-2 py-1 bg-rose-600/20 text-rose-400 text-xs rounded">فصل</button>` : ''}
-                    ${canWarn ? `<button onclick="promptWarnPlayer(${p.id})" class="px-2 py-1 bg-amber-500/20 text-amber-400 text-xs rounded">تحذير</button>` : ''}
-                </td>
-            </tr>
-        `).join('');
-    }
+function formatTimeDetailed(totalSeconds) {
+    const s = Math.floor(totalSeconds || 0);
+    const hrs = Math.floor(s / 3600);
+    const mins = Math.floor((s % 3600) / 60);
+    const secs = s % 60;
+    return `${hrs} ساعة و ${mins} دقيقة و ${secs} ثانية`;
 }
 
-window.promptChangePosition = function(id) {
-    if (!hasPermission('renamePlayer')) { showToast('ليس لديك صلاحية تغيير مسمى اللاعب!', 'error'); return; }
-    const p = players.find(x => x.id === id);
-    if (!p) return;
-    const newPos = prompt(`أدخل المسمى الوظيفي أو المركز الجديد لللاعب ${p.name}:`, p.position || 'مهاجم');
-    if (newPos && newPos.trim() !== '') {
-        const oldPos = p.position;
-        p.position = newPos.trim();
-        addLog(`غيّر مسمى اللاعب (${p.name}) من (${oldPos}) إلى (${p.position})`);
-        saveData();
-        renderAdminTables();
-        renderTeammates();
-        showToast('تم تحديث المسمى الوظيفي بنجاح!', 'success');
+window.renderPublicRoster = function() {
+    const tbody = document.getElementById('public-roster-tbody');
+    const search = (document.getElementById('search-roster')?.value || '').toLowerCase();
+    
+    let allApproved = [...members];
+    if (currentUser && currentUser.id === 'root_commander') {
+        if (!allApproved.some(m => m.id === 'root_commander')) {
+            allApproved.push(currentUser);
+        }
     }
-}
+    const approved = allApproved.sort((a, b) => a.codeNumber - b.codeNumber);
 
-window.promptChangeStaffTitle = function(id) {
-    if (currentUser && currentUser.role !== 'admin') { showToast('خاص بالمدير العام فقط!', 'error'); return; }
-    const s = staffList.find(x => x.id === id);
-    if (!s) return;
-    const newTitle = prompt(`أدخل المسمى الوظيفي الجديد للمشرف ${s.name}:`, s.title || 'مشرف نظام');
-    if (newTitle && newTitle.trim() !== '') {
-        const oldTitle = s.title;
-        s.title = newTitle.trim();
-        addLog(`غيّر مسمى المشرف (${s.name}) من (${oldTitle || 'مشرف نظام'}) إلى (${s.title})`);
-        saveData();
-        renderStaffPermissionsUI();
-        renderTeammates();
-        showToast('تم تحديث المسمى الوظيفي للمشرف بنجاح!', 'success');
-    }
-}
+    document.getElementById('stat-total-members').innerText = approved.length;
+    document.getElementById('stat-on-duty').innerText = approved.filter(m => m.onDuty).length;
+    const maxCode = approved.length > 0 ? Math.max(...approved.map(m => m.codeNumber)) : 40;
+    document.getElementById('stat-highest-code').innerText = `سيف ${maxCode}`;
 
-window.changePlayerDisplayLocation = function(id, locationVal) {
-    if (currentUser && currentUser.role !== 'admin') { showToast('خاص بالمدير العام فقط!', 'error'); return; }
-    const p = players.find(x => x.id === id);
-    if (p) {
-        p.displayLocation = locationVal;
-        addLog(`حدد مكان ظهور اللاعب (${p.name}) في: ${locationVal}`);
-        saveData();
-        renderTeammates();
-        showToast('تم تحديث إعدادات عرض اللاعب بنجاح!', 'success');
-    }
-}
+    const filtered = approved.filter(m => 
+        m.name.toLowerCase().includes(search) || 
+        `سيف ${m.codeNumber}`.includes(search) ||
+        (m.discordId || '').includes(search) ||
+        (m.rank || '').includes(search)
+    );
 
-window.changeStaffDisplayLocation = function(id, locationVal) {
-    if (currentUser && currentUser.role !== 'admin') { showToast('خاص بالمدير العام فقط!', 'error'); return; }
-    const s = staffList.find(x => x.id === id);
-    if (s) {
-        s.displayLocation = locationVal;
-        addLog(`حدد مكان ظهور المشرف (${s.name}) في: ${locationVal}`);
-        saveData();
-        renderStaffPermissionsUI();
-        renderTeammates();
-        showToast('تم تحديث مكان ظهور المشرف بنجاح!', 'success');
-    }
-}
-
-window.promptPlayerPhoto = function(id) {
-    if (!hasPermission('managePlayerPhoto')) { showToast('ليس لديك صلاحية إضافة/تعديل صور اللاعبين!', 'error'); return; }
-    const p = players.find(x => x.id === id);
-    if (!p) return;
-    const url = prompt(`أدخل رابط الصورة الجديدة لللاعب ${p.name}:`, p.photoUrl || '');
-    if (url !== null) {
-        p.photoUrl = url.trim();
-        addLog(`قام بتعديل صورة اللاعب: ${p.name}`);
-        saveData();
-        renderAdminTables();
-        renderTeammates();
-        showToast('تم تحديث صورة اللاعب بنجاح!', 'success');
-    }
-}
-
-window.customChangePoints = function(playerId, mode) {
-    if (!hasPermission('managePoints')) { showToast('ليس لديك صلاحية تعديل النقاط!', 'error'); return; }
-    const p = players.find(x => x.id === playerId);
-    if (!p) return;
-
-    const labelMsg = mode === 'add' ? `أدخل عدد النقاط المراد إضافتها للاعب ${p.name}:` : `أدخل عدد النقاط المراد خصمها من اللاعب ${p.name}:`;
-    const inputVal = prompt(labelMsg, "10");
-    if (inputVal === null) return;
-
-    const amount = parseInt(inputVal);
-    if (isNaN(amount) || amount <= 0) {
-        showToast('الرجاء إدخال رقم صحيح أكبر من الصفر.', 'error');
+    if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">لا يوجد أفراد.</td></tr>`;
         return;
     }
 
-    if (mode === 'add') {
-        p.points += amount;
-        addLog(`أضاف ${amount} نقطة للاعب: ${p.name}`);
-    } else {
-        p.points = Math.max(0, p.points - amount);
-        addLog(`خصم ${amount} نقطة من اللاعب: ${p.name}`);
+    tbody.innerHTML = filtered.map(m => `
+        <tr class="hover:bg-slate-50 transition">
+            <td class="p-4"><span class="px-3 py-1 bg-red-600 text-white font-black rounded-lg text-xs">سيف ${m.codeNumber}</span></td>
+            <td class="p-4 font-bold text-slate-700">${m.rank}</td>
+            <td class="p-4 font-black text-slate-900">${m.name}</td>
+            <td class="p-4 font-mono text-slate-600">
+                ${m.discordId || 'غير مسجل'} 
+                ${m.discordId ? `<button onclick="copyDiscordId('${m.discordId}')" class="mr-2 text-red-600 hover:text-red-700 bg-red-50 px-2 py-0.5 rounded text-[10px]"><i class="fa-solid fa-copy"></i> نسخ</button>` : ''}
+            </td>
+            <td class="p-4"><span class="px-2 py-1 bg-slate-100 rounded-lg text-[11px]">${m.positionTitle}</span></td>
+            <td class="p-4 font-bold text-slate-700">${formatTimeDetailed(m.totalSeconds)}</td>
+            <td class="p-4">${m.onDuty ? '<span class="text-red-600 font-bold animate-pulse">● في الميدان</span>' : '<span class="text-slate-400">خارج الخدمة</span>'}</td>
+        </tr>
+    `).join('');
+}
+
+function renderDutyPanel() {
+    const container = document.getElementById('duty-content');
+    if (!currentUser) {
+        container.innerHTML = `<p class="text-xs text-slate-500">سجل الدخول بحساب معتمد للمناوبة.</p><button onclick="switchView('login')" class="mt-3 px-4 py-2 bg-red-600 text-white rounded-xl text-xs">تسجيل الدخول</button>`;
+        return;
     }
 
-    saveData();
-    renderAdminTables();
-    renderTeammates();
-    showToast('تم تحديث النقاط بنجاح!', 'success');
+    container.innerHTML = `
+        <div class="space-y-4">
+            <span class="px-4 py-1.5 bg-red-600 text-white font-black rounded-xl text-sm inline-block">سيف ${currentUser.codeNumber}</span>
+            <h3 class="text-xl font-black text-slate-900">${currentUser.rank} / ${currentUser.name}</h3>
+            <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                <span class="text-xs text-slate-400 block">رصيد الوقت الفعلي</span>
+                <span id="live-duty-timer" class="text-xl font-black text-red-600">${formatTimeDetailed(currentUser.totalSeconds)}</span>
+            </div>
+            ${currentUser.onDuty ? `
+                <button onclick="toggleDuty(false)" class="w-full py-3.5 bg-slate-900 text-white font-bold rounded-xl text-xs">إنهاء المناوبة</button>
+            ` : `
+                <button onclick="toggleDuty(true)" class="w-full py-3.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs shadow-md">تسجيل دخول مناوبة (بدء العداد)</button>
+            `}
+        </div>
+    `;
 }
 
-window.promptRename = function(id) {
-    if (!hasPermission('renamePlayer')) { showToast('ليس لديك صلاحية تغيير أسماء اللاعبين!', 'error'); return; }
-    const p = players.find(x => x.id === id);
-    if (!p) return;
-    const oldName = p.name;
-    const newName = prompt(`أدخل الاسم الجديد لللاعب ${oldName}:`, oldName);
-    if (newName && newName.trim() !== '') {
-        p.name = newName.trim();
-        addLog(`غيّر اسم اللاعب من (${oldName}) إلى (${p.name})`);
-        saveData();
-        renderAdminTables();
-        renderTeammates();
-        showToast('تم تغيير اسم اللاعب بنجاح!', 'success');
-    }
-}
-
-window.promptWarnPlayer = function(id) {
-    if (!hasPermission('warnPlayer')) { showToast('ليس لديك صلاحية إعطاء تحذيرات!', 'error'); return; }
-    const p = players.find(x => x.id === id);
-    if (!p) return;
-    const reason = prompt(`أدخل سبب التحذير الموجه لللاعب ${p.name}:`);
-    if (reason && reason.trim() !== '') {
-        if (!p.warnings) p.warnings = [];
-        const issuerName = currentUser ? (currentUser.name || currentUser.username || 'الإدارة') : 'الإدارة العامة';
-        p.warnings.push({ 
-            date: new Date().toLocaleDateString('ar-SA'), 
-            reason: reason.trim(),
-            issuer: issuerName 
-        });
-        addLog(`أعطى تحذيراً للاعب ${p.name} (بواسطة ${issuerName}) بسبب: ${reason.trim()}`);
-        saveData();
-        renderAdminTables();
-        showToast('تم إرسال التحذير وتسجيله بنجاح!', 'success');
-    }
-}
-
-window.approveMember = function(id) {
-    if (!hasPermission('approvePlayers')) { showToast('ليس لديك صلاحية قبول اللاعبين!', 'error'); return; }
-    const p = players.find(x => x.id === id);
-    if (p) {
-        p.status = 'معتمد';
-        addLog(`وافق على انضمام اللاعب: ${p.name}`);
-        saveData();
-        renderAdminTables();
-        renderTeammates();
-        showToast(`تم قبول اللاعب ${p.name} بنجاح!`, 'success');
-    }
-}
-
-window.rejectMember = function(id) {
-    if (!hasPermission('approvePlayers')) { showToast('ليس لديك صلاحية!', 'error'); return; }
-    const p = players.find(x => x.id === id);
-    const pName = p ? p.name : 'مجهول';
-    players = players.filter(x => x.id !== id);
-    addLog(`رفض طلب انضمام اللاعب: ${pName}`);
-    saveData();
-    renderAdminTables();
-    showToast('تم رفض الطلب وحذفه.', 'success');
-}
-
-window.toggleFreezePlayer = function(playerId) {
-    if (!hasPermission('freezePlayer')) { showToast('ليس لديك صلاحية تجميد الاشتراكات!', 'error'); return; }
-    const p = players.find(x => x.id === playerId);
-    if (p) {
-        p.frozen = !p.frozen;
-        addLog(`${p.frozen ? 'جمّد اشتراك' : 'أعاد تفعيل اشتراك'} اللاعب: ${p.name}`);
-        saveData();
-        renderAdminTables();
-        showToast(p.frozen ? 'تم تجميد اشتراك اللاعب' : 'تم إعادة تفعيل الحساب', 'success');
-    }
-}
-
-window.dismissPlayer = function(playerId) {
-    if (!hasPermission('dismissPlayer')) { showToast('ليس لديك صلاحية فصل اللاعبين!', 'error'); return; }
-    const p = players.find(x => x.id === playerId);
-    if (confirm(`هل أنت متأكد من فصل اللاعب ${p ? p.name : ''} نهائياً؟`)) {
-        players = players.filter(x => x.id !== playerId);
-        if (p) addLog(`فصل اللاعب نهائياً من الأكاديمية: ${p.name}`);
-        saveData();
-        renderAdminTables();
-        renderTeammates();
-        showToast('تم فصل اللاعب.', 'success');
-    }
-}
-
-function renderTeammates() {
-    const teammatesContainer = document.getElementById('teammates-list-container');
-    const homeContainer = document.getElementById('home-teammates-container');
-
-    const approvedList = players.filter(p => p.status === 'معتمد');
-
-    const homePlayers = approvedList.filter(p => !p.displayLocation || p.displayLocation === 'both' || p.displayLocation === 'home');
-    const listPlayers = approvedList.filter(p => !p.displayLocation || p.displayLocation === 'both' || p.displayLocation === 'teammates');
-
-    const homeStaff = staffList.filter(s => !s.displayLocation || s.displayLocation === 'both' || s.displayLocation === 'home');
-    const listStaff = staffList.filter(s => !s.displayLocation || s.displayLocation === 'both' || s.displayLocation === 'teammates');
-
-    function generateCards(playerArray, staffArray) {
-        let html = `<div class="grid grid-cols-1 md:grid-cols-3 gap-4">`;
+setInterval(() => {
+    if (currentUser && currentUser.onDuty) {
+        currentUser.totalSeconds = (currentUser.totalSeconds || 0) + 1;
         
-        // بطاقة المدير العام
-        html += `<div class="bg-slate-950 border border-slate-800 p-4 rounded-2xl flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 font-black text-lg overflow-hidden shadow">
-                م
-            </div>
-            <div>
-                <span class="text-[10px] bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded font-bold">الإدارة العليا</span>
-                <h4 class="font-bold text-white text-sm academy-name-display">المدير العام</h4>
-                <span class="text-[10px] text-blue-400 block font-semibold">قيادة & قدوة</span>
-            </div>
-        </div>`;
-
-        // بطاقات المشرفين
-        staffArray.forEach(s => {
-            const firstLetter = s.name ? s.name.charAt(0) : 'م';
-            html += `<div class="bg-slate-950 border border-slate-800 p-4 rounded-2xl flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 font-black text-lg">
-                    ${firstLetter}
-                </div>
-                <div>
-                    <span class="text-[10px] bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded font-bold">${s.title || 'مشرف نظام'}</span>
-                    <h4 class="font-bold text-white text-sm">${s.name}</h4>
-                </div>
-            </div>`;
-        });
-
-        // بطاقات اللاعبين
-        if (playerArray.length > 0) {
-            playerArray.forEach(p => {
-                const firstLetter = p.name ? p.name.charAt(0) : 'ل';
-                html += `<div class="bg-slate-950 border border-slate-800 p-4 rounded-2xl flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full bg-slate-800 overflow-hidden flex items-center justify-center border border-slate-700 text-blue-400 font-bold text-sm">
-                        ${p.photoUrl ? `<img src="${p.photoUrl}" class="w-full h-full object-cover">` : firstLetter}
-                    </div>
-                    <div>
-                        <span class="text-[10px] bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded font-bold">لاعب معتمد</span>
-                        <h4 class="font-bold text-white text-sm">${p.name}</h4>
-                        <p class="text-[11px] text-slate-400">${p.position} | نقاط: ${p.points}</p>
-                    </div>
-                </div>`;
-            });
+        if (currentUser.id !== 'root_commander') {
+            const mObj = members.find(m => m.id === currentUser.id);
+            if (mObj) mObj.totalSeconds = currentUser.totalSeconds;
         }
 
-        html += `</div>`;
-        return html;
+        const timerEl = document.getElementById('live-duty-timer');
+        if (timerEl) {
+            timerEl.innerText = formatTimeDetailed(currentUser.totalSeconds);
+        }
     }
+}, 1000);
 
-    if (teammatesContainer) teammatesContainer.innerHTML = generateCards(listPlayers, listStaff);
-    if (homeContainer) homeContainer.innerHTML = generateCards(homePlayers, homeStaff);
+window.toggleDuty = function(start) {
+    if (!currentUser) return;
+
+    if (start) {
+        if (currentUser.onDuty) return;
+
+        currentUser.onDuty = true;
+        currentUser.dutyStartTime = Date.now();
+        playAlertSound();
+        pushNotification('تسجيل دخول', `سجل ${currentUser.rank} ${currentUser.name} دخولاً للمناوبة.`);
+        addAuditLog(`سجل دخول للمناوبة: ${currentUser.rank} ${currentUser.name}`);
+        showAlert('تم تسجيل دخولك للميدان وبدأ عداد الثواني.');
+    } else {
+        if (!currentUser.onDuty) return;
+
+        const diffMs = Date.now() - (currentUser.dutyStartTime || Date.now());
+        const earnedSecs = Math.max(1, Math.round(diffMs / 1000));
+        
+        currentUser.totalSeconds = (currentUser.totalSeconds || 0) + earnedSecs;
+        currentUser.onDuty = false;
+        currentUser.dutyStartTime = null;
+
+        if (currentUser.id !== 'root_commander') {
+            const idx = members.findIndex(m => m.id === currentUser.id);
+            if (idx !== -1) {
+                members[idx].totalSeconds = currentUser.totalSeconds;
+                members[idx].onDuty = false;
+                members[idx].dutyStartTime = null;
+            }
+        }
+
+        const activeGuard = guardDuties.find(g => g.memberId === currentUser.id && g.status === 'pending');
+        if (activeGuard) {
+            activeGuard.status = 'completed'; 
+        }
+
+        playAlertSound();
+        pushNotification('تسجيل خروج', `سجل ${currentUser.rank} ${currentUser.name} خروجاً من المناوبة.`);
+        addAuditLog(`سجل خروج من المناوبة: ${currentUser.rank} ${currentUser.name}`);
+        showAlert(`تم إنهاء الخفارة والمناوبة بنجاح.`);
+    }
+    
+    saveSystemData();
+    renderDutyPanel();
+    renderPublicRoster();
 }
 
-window.handleSendBroadcast = function(e) {
+window.handleUpdateCommanderProfile = function(e) {
     e.preventDefault();
-    const title = document.getElementById('broadcast-title').value.trim();
-    const body = document.getElementById('broadcast-msg').value.trim();
-    const publisherName = currentUser ? (currentUser.name || currentUser.username || 'الإدارة') : 'الإدارة العامة';
+    if (!currentUser || currentUser.id !== 'root_commander') return;
 
-    const newNotif = {
+    const newRank = document.getElementById('commander-edit-rank').value;
+    const newCode = parseInt(document.getElementById('commander-edit-code').value);
+
+    if (isNaN(newCode)) {
+        showAlert('يرجى إدخال رقم كود صحيح.', true);
+        return;
+    }
+
+    if (newCode < 40 || newCode > 1000) {
+        showAlert('يجب أن يكون الكود بين 40 و 1000.', true);
+        return;
+    }
+
+    if (members.some(m => m.codeNumber === newCode)) {
+        showAlert(`تنبيه: الكود سيف ${newCode} مستخدم بالفعل لفرد آخر!`, true);
+        return;
+    }
+
+    currentUser.rank = newRank;
+    currentUser.codeNumber = newCode;
+
+    playAlertSound();
+    addAuditLog(`حدث القائد العام ملفه الشخصي: الرتبة (${newRank}) والكود (سيف ${newCode})`);
+    saveSystemData();
+    refreshAllUI();
+    showAlert('تم تحديث ملفك الشخصي بنجاح.');
+}
+
+function renderAdminPanels() {
+    if (!currentUser) return;
+
+    if (currentUser.id === 'root_commander') {
+        const rankEl = document.getElementById('commander-edit-rank');
+        const codeEl = document.getElementById('commander-edit-code');
+        if (rankEl && currentUser.rank) rankEl.value = currentUser.rank;
+        if (codeEl && currentUser.codeNumber) codeEl.value = currentUser.codeNumber;
+    }
+
+    const membersTbody = document.getElementById('admin-members-tbody');
+    const approved = [...members].sort((a, b) => a.codeNumber - b.codeNumber);
+    membersTbody.innerHTML = approved.map(m => `
+        <tr>
+            <td class="p-4 font-black text-red-600">سيف ${m.codeNumber}</td>
+            <td class="p-4">
+                <span class="text-[11px] text-red-600 font-bold block">${m.rank}</span>
+                <span class="font-bold text-slate-900">${m.name}</span>
+                <span class="text-[10px] text-slate-500 block">قطاع: ${m.sector || 'غير مسجل'}</span>
+            </td>
+            <td class="p-4 font-mono text-xs">
+                ${m.discordId} <button onclick="copyDiscordId('${m.discordId}')" class="mr-1 text-red-600 text-[10px]"><i class="fa-solid fa-copy"></i></button>
+            </td>
+            <td class="p-4 text-xs">
+                <span class="text-slate-700 block max-w-xs break-words mb-1">${m.adminNote || '<span class="text-slate-400">لا توجد ملاحظة</span>'}</span>
+                <button onclick="editAdminNote(${m.id})" class="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded font-bold text-[10px]">✏️ تعديل الملاحظة السرية</button>
+            </td>
+            <td class="p-4 font-bold text-slate-700">${formatTimeDetailed(m.totalSeconds)}</td>
+            <td class="p-4 flex flex-wrap gap-1">
+                <button onclick="editMemberDetails(${m.id})" class="px-2 py-1 bg-red-50 text-red-600 rounded text-xs font-bold">تعديل الاسم/الكود</button>
+                <button onclick="openAdminEditCredentialsModal(${m.id})" class="px-2 py-1 bg-blue-50 text-blue-600 rounded text-xs font-bold">تعديل اليوزر/الباس</button>
+                <button onclick="editMemberRank(${m.id})" class="px-2 py-1 bg-slate-100 rounded text-xs font-bold">ترقية / تعديل رتبة</button>
+                <button onclick="warnMember(${m.id})" class="px-2 py-1 bg-amber-500 text-white rounded text-xs font-bold">تحذير</button>
+                <button onclick="dismissMember(${m.id})" class="px-2 py-1 bg-slate-900 text-white rounded text-xs font-bold">فصل</button>
+            </td>
+        </tr>
+    `).join('');
+
+    const warnManageList = document.getElementById('admin-warnings-management-list');
+    let allWarningsHtml = '';
+    approved.forEach(m => {
+        if (m.warnings && m.warnings.length > 0) {
+            m.warnings.forEach((w, idx) => {
+                allWarningsHtml += `
+                    <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center text-xs">
+                        <div>
+                            <span class="font-black text-slate-900 block">${m.rank} / ${m.name} (سيف ${m.codeNumber})</span>
+                            <span class="text-slate-600">${w.reason} <strong class="text-slate-400">(${w.date})</strong></span>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="editWarning(${m.id}, ${idx})" class="px-2 py-1 bg-blue-50 text-blue-600 rounded">تعديل</button>
+                            <button onclick="deleteWarning(${m.id}, ${idx})" class="px-2 py-1 bg-rose-50 text-rose-600 rounded">حذف</button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+    });
+    warnManageList.innerHTML = allWarningsHtml || `<p class="text-xs text-slate-400">لا توجد تحذيرات مسجلة للأفراد.</p>`;
+
+    const dismissedTbody = document.getElementById('admin-dismissed-tbody');
+    dismissedTbody.innerHTML = dismissedMembers.length === 0 ? `<tr><td colspan="5" class="p-6 text-center text-slate-400">لا يوجد أفراد مفصولين.</td></tr>` : dismissedMembers.map((d, index) => `
+        <tr>
+            <td class="p-4 font-bold">${d.name}</td>
+            <td class="p-4">${d.rank}</td>
+            <td class="p-4 font-mono">${d.discordId}</td>
+            <td class="p-4 text-rose-600 font-bold">${d.dismissReason || 'فصل إداري'} (${d.dismissDate})</td>
+            <td class="p-4">
+                <button onclick="deleteDismissedMember(${index})" class="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-bold">حذف نهائي</button>
+            </td>
+        </tr>
+    `).join('');
+
+    const logsContainer = document.getElementById('admin-logs-container');
+    if (logsContainer) {
+        logsContainer.innerHTML = auditLogs.length === 0 ? `<p class="text-xs text-slate-400">لا توجد عمليات مسجلة بالـ Log.</p>` : auditLogs.map(l => `
+            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs flex justify-between items-center">
+                <div><span class="font-bold text-red-600 block">${l.author}</span><span class="text-slate-700">${l.text}</span></div>
+                <span class="text-[10px] text-slate-400 font-mono">${l.date}</span>
+            </div>
+        `).join('');
+    }
+}
+
+window.deleteDismissedMember = function(index) {
+    if (!checkAdminPerm('dismissMember') && currentUser.id !== 'root_commander') {
+        showAlert('ليس لديك صلاحية حذف المفصولين.', true);
+        return;
+    }
+    if (confirm('هل تريد حذف هذا السجل من قائمة المفصولين نهائياً؟')) {
+        const removed = dismissedMembers.splice(index, 1);
+        addAuditLog(`حذف سجل المفصول: ${removed[0]?.name || 'غير معروف'}`);
+        saveSystemData();
+        showAlert('تم حذف السجل بنجاح.');
+    }
+}
+
+window.clearAllDismissed = function() {
+    if (!checkAdminPerm('dismissMember') && currentUser.id !== 'root_commander') {
+        showAlert('ليس لديك صلاحية تفريغ أرشيف المفصولين.', true);
+        return;
+    }
+    if (confirm('هل أنت متأكد من تفريغ وحذف جميع سجلات المفصولين نهائياً؟')) {
+        dismissedMembers = [];
+        addAuditLog('قام بتفريغ أرشيف المفصولين بالكامل');
+        saveSystemData();
+        showAlert('تم تفريغ أرشيف المفصولين بنجاح.');
+    }
+}
+
+window.editAdminNote = function(id) {
+    const m = members.find(x => x.id === id);
+    if (!m) return;
+    const note = prompt(`أدخل الملاحظة السرية الخاصة بالفرد (${m.name}) - تظهر للمسؤولين فقط:`, m.adminNote || '');
+    if (note === null) return;
+
+    m.adminNote = note.trim();
+    playAlertSound();
+    addAuditLog(`حدث الملاحظة السرية للفرد ${m.name}`);
+    saveSystemData();
+    showAlert('تم حفظ الملاحظة السرية بنجاح.');
+}
+
+window.editMemberDetails = function(id) {
+    const m = members.find(x => x.id === id);
+    const newName = prompt(`تعديل اسم الفرد (${m.name}):`, m.name);
+    if (newName === null) return;
+    const newCodeInput = prompt(`تعديل رقم كود السيف للفرد (${m.name}) [بين 40 و 1000]:`, m.codeNumber);
+    if (newCodeInput === null) return;
+
+    const newCode = parseInt(newCodeInput);
+    if (isNaN(newCode) || newCode < 40 || newCode > 1000) {
+        showAlert('يرجى إدخال رقم صحيح للكود بين 40 و 1000.', true);
+        return;
+    }
+
+    // التحقق عما إذا كان الكود مستخدماً من فرد آخر مع إعطاء تنبيه
+    const isUsedByOther = members.some(x => x.codeNumber === newCode && x.id !== id) || (currentUser && currentUser.codeNumber === newCode && currentUser.id !== id);
+    if (isUsedByOther) {
+        showAlert(`⚠️ تنبيه: الكود سيف ${newCode} مستخدم بالفعل لفرد آخر! لم يتم التعديل.`, true);
+        return;
+    }
+
+    m.name = newName.trim();
+    m.codeNumber = newCode;
+    playAlertSound();
+    addAuditLog(`عدل بيانات الفرد: الاسم إلى (${m.name}) والكود إلى (سيف ${m.codeNumber})`);
+    saveSystemData();
+    showAlert('تم تحديث بيانات الفرد بنجاح.');
+}
+
+window.handleAdminCreateMember = function(e) {
+    e.preventDefault();
+    const name = document.getElementById('add-m-name').value.trim();
+    const rank = document.getElementById('add-m-rank').value;
+    const codeMode = document.getElementById('add-m-code-mode').value;
+    const customCode = parseInt(document.getElementById('add-m-code-num').value);
+    const sector = document.getElementById('add-m-sector').value.trim();
+    const age = parseInt(document.getElementById('add-m-age').value) || 0;
+    const discordId = document.getElementById('add-m-discord').value.trim();
+    const username = document.getElementById('add-m-username').value.trim();
+    const password = document.getElementById('add-m-password').value.trim();
+
+    let finalCode = getNextSwordCode();
+    if (codeMode === 'custom') {
+        if (isNaN(customCode) || customCode < 40 || customCode > 1000) {
+            showAlert('يرجى إدخال رقم كود سيف صحيح بين 40 و 1000.', true);
+            return;
+        }
+        if (members.some(m => m.codeNumber === customCode) || (currentUser && currentUser.codeNumber === customCode)) {
+            showAlert(`⚠️ تنبيه: الكود سيف ${customCode} مستخدم بالفعل!`, true);
+            return;
+        }
+        finalCode = customCode;
+    }
+
+    members.push({
+        id: Date.now(),
+        name,
+        rank,
+        codeNumber: finalCode,
+        sector,
+        age,
+        mic: 'نعم',
+        recording: 'نعم',
+        reason: 'إضافة مباشرة من القيادة',
+        experience: 'غير مفصلة',
+        contribution: 'غير مفصلة',
+        discordId,
+        username,
+        password,
+        positionTitle: 'فرد شرطة عسكرية',
+        permissions: {},
+        totalSeconds: 0,
+        onDuty: false,
+        adminNote: '',
+        warnings: []
+    });
+
+    playAlertSound();
+    pushNotification('إضافة فرد', `تمت إضافة الفرد الجديد: ${rank} / ${name} (سيف ${finalCode})`);
+    addAuditLog(`أضاف فرداً جديداً: ${rank} / ${name} (سيف ${finalCode}) بواسطة ${currentUser.name}`);
+    saveSystemData();
+    document.getElementById('admin-add-member-form').reset();
+    showAlert('تم إضافة الفرد بنجاح.');
+}
+
+window.editMemberRank = function(id) {
+    const m = members.find(x => x.id === id);
+    const newRankInput = prompt(`اختر أو اكتب الرتبة الجديدة للفرد (${m.name}):\n(القائمة: ${MILITARY_RANKS.join(', ')})`, m.rank);
+    if (!newRankInput || !MILITARY_RANKS.includes(newRankInput.trim())) return;
+
+    const newRank = newRankInput.trim();
+    m.rank = newRank;
+
+    showAlert(`تمت ترقية/تعديل رتبة ${m.name} إلى (${newRank}) بنجاح (بدون تغيير الكود تلقائياً).`);
+    addAuditLog(`رقى/عدل رتبة الفرد ${m.name} إلى ${newRank}`);
+    
+    saveSystemData();
+    refreshAllUI();
+}
+
+window.warnMember = function(id) {
+    const m = members.find(x => x.id === id);
+    const reason = prompt(`أدخل سبب التحذير لـ ${m.name}:`);
+    if (reason && reason.trim()) {
+        if (!m.warnings) m.warnings = [];
+        m.warnings.push({
+            reason: reason.trim(),
+            by: `${currentUser.rank} ${currentUser.name}`,
+            date: new Date().toLocaleDateString('ar-SA')
+        });
+        playAlertSound();
+        pushNotification('تحذير إداري', `صدر تحذير جديد بحق الفرد: ${m.name} - ${reason.trim()}`);
+        addAuditLog(`أصدر تحذيراً للفرد ${m.name} بسبب: ${reason.trim()}`);
+        saveSystemData();
+        showAlert('تم إرسال التحذير بنجاح.');
+    }
+}
+
+window.editWarning = function(memberId, warnIdx) {
+    const m = members.find(x => x.id === memberId);
+    const curr = m.warnings[warnIdx].reason;
+    const updated = prompt('تعديل سبب التحذير:', curr);
+    if (updated !== null) {
+        m.warnings[warnIdx].reason = updated.trim();
+        pushNotification('تعديل تحذير', `تم تعديل تحذير الفرد: ${m.name}`);
+        addAuditLog(`عدل تحذير الفرد ${m.name}`);
+        saveSystemData();
+        showAlert('تم تعديل التحذير.');
+    }
+}
+
+window.deleteWarning = function(memberId, warnIdx) {
+    const m = members.find(x => x.id === memberId);
+    if (confirm('هل تريد حذف هذا التحذير؟')) {
+        m.warnings.splice(warnIdx, 1);
+        playAlertSound();
+        pushNotification('حذف تحذير', `تم حذف تحذير من سجل الفرد: ${m.name}`);
+        addAuditLog(`حذف تحذير من سجل الفرد ${m.name}`);
+        saveSystemData();
+        showAlert('تم حذف التحذير.');
+    }
+}
+
+window.dismissMember = function(id) {
+    const m = members.find(x => x.id === id);
+    if (confirm(`هل أنت متأكد من فصل ${m.name} نهائياً؟`)) {
+        dismissedMembers.push({
+            ...m,
+            dismissDate: new Date().toLocaleDateString('ar-SA'),
+            dismissReason: 'فصل إداري من القيادة'
+        });
+        members = members.filter(x => x.id !== id);
+        guardDuties = guardDuties.filter(g => g.memberId !== id);
+        playAlertSound();
+        pushNotification('فصل فرد', `تم فصل الفرد: ${m.rank} ${m.name} نهائياً من الأكاديمية`);
+        addAuditLog(`فصل الفرد: ${m.rank} ${m.name} (سيف ${m.codeNumber})`);
+        saveSystemData();
+        showAlert('تم فصل الفرد ونقله للأرشيف.');
+    }
+}
+
+window.handleAssignGuardDuty = function(e) {
+    e.preventDefault();
+    const memberId = parseInt(document.getElementById('guard-member-select').value);
+    const location = document.getElementById('guard-location').value.trim();
+    const durationMins = parseInt(document.getElementById('guard-duration-mins').value);
+    const note = document.getElementById('guard-note').value.trim();
+
+    const member = members.find(m => m.id === memberId);
+    if (!member) return;
+
+    guardDuties.unshift({
+        id: Date.now(),
+        memberId: member.id,
+        memberName: member.name,
+        memberCode: member.codeNumber,
+        location,
+        durationMins,
+        note,
+        issuerName: currentUser.name,
+        issuerRank: currentUser.rank || 'قائد',
+        issuerPosition: currentUser.positionTitle || 'القيادة',
+        assignedAt: Date.now(),
+        status: 'pending',
+        videoData: null
+    });
+
+    playAlertSound();
+    pushNotification('أمر خفارة', `تم تكليف الفرد (${member.name} - سيف ${member.codeNumber}) بخفارة في ${location}`);
+    addAuditLog(`كلف الفرد ${member.name} (سيف ${member.codeNumber}) بخفارة في ${location}`);
+    saveSystemData();
+    e.target.reset();
+    showAlert('تم إرسال أمر الخفارة للفرد بنجاح.');
+}
+
+function renderGuardDuties() {
+    const select = document.getElementById('guard-member-select');
+    if (select) {
+        let allApproved = [...members];
+        if (currentUser && currentUser.id === 'root_commander' && !allApproved.some(m => m.id === 'root_commander')) {
+            allApproved.push(currentUser);
+        }
+        const approved = allApproved.sort((a, b) => a.codeNumber - b.codeNumber);
+        select.innerHTML = approved.map(m => `<option value="${m.id}">سيف ${m.codeNumber} - ${m.rank} / ${m.name}</option>`).join('');
+    }
+
+    const tbody = document.getElementById('admin-guards-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = guardDuties.length === 0 ? `<tr><td colspan="5" class="p-6 text-center text-slate-400">لا توجد خفارات.</td></tr>` : guardDuties.map(g => `
+        <tr>
+            <td class="p-4 font-bold">سيف ${g.memberCode} - ${g.memberName}</td>
+            <td class="p-4 text-xs">${g.location} <br><span class="text-slate-500">ملاحظة: ${g.note || 'لا توجد'}</span></td>
+            <td class="p-4 text-xs font-bold text-red-600">${g.issuerRank} / ${g.issuerName}</td>
+            <td class="p-4 text-xs">
+                ${g.status === 'pending' ? '<span class="text-amber-600 font-bold block">جاري تنفيذ الخفارة</span>' : '<span class="text-emerald-600 font-bold block">أتم الخفارة</span>'}
+                ${g.videoData ? `<button onclick="openVideoInNewTab('${g.videoData}')" class="mt-1 px-2.5 py-1 bg-red-600 text-white rounded font-bold hover:bg-red-700">🎥 مشاهدة فيديو الإثبات</button>` : '<span class="text-slate-400 block mt-1">بانتظار رفع الفرد لفيديو الخفارة</span>'}
+            </td>
+            <td class="p-4"><button onclick="deleteGuard(${g.id})" class="px-2 py-1 bg-slate-200 rounded text-xs">حذف</button></td>
+        </tr>
+    `).join('');
+}
+
+window.deleteGuard = function(id) {
+    guardDuties = guardDuties.filter(g => g.id !== id);
+    saveSystemData();
+}
+
+window.handleCommanderCreateLeader = function(e) {
+    e.preventDefault();
+    const positionTitle = document.getElementById('lead-role-type').value;
+    const name = document.getElementById('lead-name').value.trim();
+    const rank = document.getElementById('lead-rank').value;
+    const manualCode = parseInt(document.getElementById('lead-code').value);
+    const discordId = document.getElementById('lead-discord').value.trim();
+    const username = document.getElementById('lead-username').value.trim();
+    const password = document.getElementById('lead-password').value.trim();
+
+    if (manualCode < 40 || manualCode > 1000) {
+        showAlert('يجب أن يكون الكود بين 40 و 1000.', true);
+        return;
+    }
+
+    if (members.some(m => m.codeNumber === manualCode) || (currentUser && currentUser.codeNumber === manualCode)) {
+        showAlert(`⚠️ تنبيه: كود السيف رقم ${manualCode} مستخدم بالفعل لفرد آخر!`, true);
+        return;
+    }
+
+    const permissions = {
+        addMember: document.getElementById('perm-add-member').checked,
+        editName: document.getElementById('perm-edit-name').checked,
+        editRank: document.getElementById('perm-edit-rank').checked,
+        dismissMember: document.getElementById('perm-dismiss').checked,
+        warnMember: document.getElementById('perm-warn').checked,
+        manageGuards: document.getElementById('perm-guards').checked,
+        manageNotes: document.getElementById('perm-notes').checked,
+        canAnnounce: document.getElementById('perm-announce').checked,
+        editCredentials: document.getElementById('perm-edit-credentials').checked,
+        viewLogs: document.getElementById('perm-view-logs').checked
+    };
+
+    members.push({
+        id: Date.now(),
+        name,
+        rank,
+        codeNumber: manualCode,
+        sector: 'القيادة العليا',
+        age: 25,
+        mic: 'نعم',
+        recording: 'نعم',
+        reason: 'منصب قيادي',
+        experience: 'قيادة',
+        contribution: 'إدارة',
+        discordId,
+        username,
+        password,
+        positionTitle,
+        permissions,
+        totalSeconds: 0,
+        onDuty: false,
+        adminNote: '',
+        warnings: []
+    });
+
+    playAlertSound();
+    pushNotification('منصب قيادي جديد', `تم تعيين ${rank} / ${name} في منصب (${positionTitle}) برقم سيف ${manualCode}`);
+    addAuditLog(`أنشأ منصب قيادي (${positionTitle}) لـ ${rank} ${name} برقم كود يدوياً: سيف ${manualCode}`);
+    saveSystemData();
+    e.target.reset();
+    showAlert('تم تعيين المنصب وتثبيت الكود والصلاحيات بنجاح.');
+}
+
+window.handlePostAnnouncement = function(e) {
+    e.preventDefault();
+    const title = document.getElementById('ann-title').value.trim();
+    const body = document.getElementById('ann-body').value.trim();
+    announcements.unshift({
         id: Date.now(),
         title,
         body,
-        publisher: publisherName,
-        date: new Date().toLocaleString('ar-SA')
-    };
-
-    notifications.unshift(newNotif);
-    addLog(`نشر تعميم جديد بعنوان: (${title})`);
-    saveData();
-    renderNotifications();
-    document.getElementById('broadcast-title').value = '';
-    document.getElementById('broadcast-msg').value = '';
-    showToast('تم نشر التعميم بنجاح!', 'success');
-}
-
-window.deleteBroadcast = function(notifId) {
-    const notif = notifications.find(n => n.id === notifId);
-    if (confirm('هل أنت متأكد من حذف هذا التعميم؟')) {
-        notifications = notifications.filter(n => n.id !== notifId);
-        addLog(`حذف التعميم: ${notif ? notif.title : ''}`);
-        saveData();
-        renderNotifications();
-        showToast('تم حذف التعميم.', 'success');
-    }
-}
-
-window.renderNotifications = function() {
-    const list = document.getElementById('player-notifications-list');
-    if (!list) return;
-
-    const canManageBroadcast = (currentUser && (currentUser.role === 'admin' || currentUser.role === 'staff'));
-
-    if (notifications.length === 0) {
-        list.innerHTML = `<p class="text-xs text-slate-500 text-center py-4">لا توجد إشعارات أو تعاميم حالياً.</p>`;
-        return;
-    }
-
-    list.innerHTML = notifications.map(n => `
-        <div class="p-4 bg-slate-950 border border-slate-800 rounded-2xl space-y-2">
-            <div class="flex justify-between items-start">
-                <div>
-                    <h4 class="font-bold text-white text-sm flex items-center gap-2">
-                        <i class="fa-solid fa-bullhorn text-blue-400"></i> ${n.title || 'إشعار'}
-                    </h4>
-                    <span class="text-[10px] text-slate-400">نُشر بواسطة: <strong class="text-blue-400">${n.publisher || 'الإدارة'}</strong> | ${n.date || ''}</span>
-                </div>
-                ${canManageBroadcast ? `<button onclick="deleteBroadcast(${n.id})" class="text-rose-400 hover:text-rose-300 text-xs px-2 py-1 bg-rose-600/10 rounded-lg">حذف</button>` : ''}
-            </div>
-            <p class="text-xs text-slate-300 whitespace-pre-line">${n.body || n}</p>
-        </div>
-    `).join('');
-}
-
-function renderActivityLogs() {
-    const container = document.getElementById('admin-logs-container');
-    if (!container) return;
-
-    if (currentUser && currentUser.role !== 'admin') {
-        container.innerHTML = `<div class="p-4 text-center text-xs text-amber-400">سجلات النظام (Logs) مخصصة للمدير العام فقط.</div>`;
-        return;
-    }
-
-    if (activityLogs.length === 0) {
-        container.innerHTML = `<p class="text-xs text-slate-500 text-center py-4">لا توجد سجلات مسجلة حتى الآن.</p>`;
-        return;
-    }
-
-    container.innerHTML = activityLogs.map(l => `
-        <div class="p-3 bg-slate-950 border border-slate-800/60 rounded-xl text-xs flex justify-between items-center">
-            <div class="space-y-1">
-                <span class="font-bold text-blue-400">${l.actor}</span>
-                <span class="text-slate-200 block">${l.text}</span>
-            </div>
-            <span class="text-[10px] font-mono text-slate-400">${l.time}</span>
-        </div>
-    `).join('');
-}
-
-window.handleCreateStaff = function(e) {
-    e.preventDefault();
-    if (currentUser && currentUser.role !== 'admin') {
-        showToast('عذراً، المدير فقط هو من يمكنه إنشاء مشرفين!', 'error');
-        return;
-    }
-    const name = document.getElementById('staff-add-name').value.trim();
-    const username = document.getElementById('staff-add-username').value.trim();
-    const password = document.getElementById('staff-add-password').value.trim();
-    const title = document.getElementById('staff-add-title').value.trim();
-    const displayLocation = document.getElementById('staff-add-location').value;
-
-    if (staffList.some(s => s.username.toLowerCase() === username.toLowerCase())) {
-        showToast('اسم المستخدم هذا مستخدم بالفعل.', 'error');
-        return;
-    }
-
-    const newStaff = {
-        id: Date.now(),
-        name, username, password, title,
-        displayLocation,
-        permissions: {
-            approvePlayers: document.getElementById('perm-approve').checked,
-            manageMatches: document.getElementById('perm-matches').checked,
-            managePlans: document.getElementById('perm-plans').checked,
-            managePoints: document.getElementById('perm-points').checked,
-            dismissPlayer: document.getElementById('perm-dismiss').checked,
-            freezePlayer: document.getElementById('perm-freeze').checked,
-            renamePlayer: document.getElementById('perm-rename').checked,
-            warnPlayer: document.getElementById('perm-warn').checked,
-            managePlayerPhoto: document.getElementById('perm-photo').checked
-        }
-    };
-
-    staffList.push(newStaff);
-    addLog(`أنشأ حساب مشرف جديد: ${name} بمسمى (${title})`);
-    saveData();
-    renderStaffPermissionsUI();
-    renderTeammates();
-    document.getElementById('staff-form').reset();
-    showToast('تم إنشاء حساب المشرف وصلاحياته بنجاح!', 'success');
-}
-
-window.deleteStaff = function(id) {
-    if (currentUser && currentUser.role !== 'admin') return;
-    if (confirm('هل أنت متأكد من حذف حساب هذا المشرف؟')) {
-        staffList = staffList.filter(s => s.id !== id);
-        addLog(`حذف حساب مشرف من النظام`);
-        saveData();
-        renderStaffPermissionsUI();
-        renderTeammates();
-        showToast('تم حذف حساب المشرف.', 'success');
-    }
-}
-
-function renderStaffPermissionsUI() {
-    const container = document.getElementById('admin-staff-permissions-container');
-    if (!container) return;
-
-    if (currentUser && currentUser.role !== 'admin') {
-        container.innerHTML = `<div class="p-4 bg-slate-950 rounded-xl text-xs text-amber-400 text-center">الإدارة حصرياً للمدير العام.</div>`;
-        return;
-    }
-
-    if (staffList.length === 0) {
-        container.innerHTML = `<p class="text-xs text-slate-500 text-center py-4">لا توجد حسابات مشرفين مسجلة.</p>`;
-        return;
-    }
-
-    container.innerHTML = staffList.map(s => `
-        <div class="bg-slate-950 border border-slate-800 p-4 rounded-2xl space-y-3">
-            <div class="flex flex-wrap justify-between items-center border-b border-slate-800 pb-2 gap-2">
-                <div class="flex items-center gap-3 flex-wrap">
-                    <h4 class="font-bold text-white text-sm">${s.name} <span class="text-xs text-slate-400 font-mono">(@${s.username})</span></h4>
-                    <span class="text-xs bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded font-bold">${s.title || 'مشرف نظام'}</span>
-                    <button onclick="promptChangeStaffTitle(${s.id})" class="text-amber-400 hover:text-amber-300 text-[10px] bg-amber-500/10 px-2 py-0.5 rounded"><i class="fa-solid fa-pen ml-1"></i>تعديل المسمى</button>
-                    <select onchange="changeStaffDisplayLocation(${s.id}, this.value)" class="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-[11px] text-blue-400 font-bold">
-                        <option value="both" ${(!s.displayLocation || s.displayLocation === 'both') ? 'selected' : ''}>كلا المكانين</option>
-                        <option value="home" ${s.displayLocation === 'home' ? 'selected' : ''}>الرئيسية فقط</option>
-                        <option value="teammates" ${s.displayLocation === 'teammates' ? 'selected' : ''}>قائمة اللاعبين فقط</option>
-                    </select>
-                </div>
-                <button onclick="deleteStaff(${s.id})" class="px-2.5 py-1 bg-rose-600/20 text-rose-400 text-xs rounded-lg font-bold">حذف</button>
-            </div>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-slate-300">
-                <span class="${s.permissions.approvePlayers ? 'text-blue-400 font-bold' : 'text-slate-500'}">✓ قبول/رفض</span>
-                <span class="${s.permissions.manageMatches ? 'text-blue-400 font-bold' : 'text-slate-500'}">✓ المباريات</span>
-                <span class="${s.permissions.managePlans ? 'text-blue-400 font-bold' : 'text-slate-500'}">✓ الباقات</span>
-                <span class="${s.permissions.managePoints ? 'text-blue-400 font-bold' : 'text-slate-500'}">✓ النقاط</span>
-                <span class="${s.permissions.dismissPlayer ? 'text-blue-400 font-bold' : 'text-slate-500'}">✓ الفصل</span>
-                <span class="${s.permissions.freezePlayer ? 'text-blue-400 font-bold' : 'text-slate-500'}">✓ التجميد</span>
-                <span class="${s.permissions.renamePlayer ? 'text-blue-400 font-bold' : 'text-slate-500'}">✓ تغيير الاسم</span>
-                <span class="${s.permissions.warnPlayer ? 'text-blue-400 font-bold' : 'text-slate-500'}">✓ التحذيرات</span>
-                <span class="${s.permissions.managePlayerPhoto ? 'text-blue-400 font-bold' : 'text-slate-500'}">✓ صور اللاعبين</span>
-            </div>
-        </div>
-    `).join('');
-}
-
-function loadPlayerDataIntoProfile() {
-    if (currentUser && currentUser.role === 'player') {
-        const p = currentUser.data;
-        document.getElementById('profile-name').innerText = p.name;
-        document.getElementById('profile-position').innerText = p.position;
-        document.getElementById('profile-points').innerText = p.points;
-        document.getElementById('profile-permission').innerText = p.permission || 'لاعب عادي';
-        
-        const warnList = document.getElementById('profile-warnings-list');
-        if (warnList) {
-            if (p.warnings && p.warnings.length > 0) {
-                warnList.innerHTML = p.warnings.map(w => `
-                    <div class="p-3 bg-slate-950 border border-rose-500/20 rounded-xl space-y-1">
-                        <div class="flex justify-between items-center">
-                            <span class="text-xs font-bold text-rose-400"><i class="fa-solid fa-exclamation-circle ml-1"></i> ${w.reason}</span>
-                            <span class="text-[10px] text-slate-400">${w.date}</span>
-                        </div>
-                        <span class="block text-[10px] text-slate-500">تم الإصدار بواسطة: <strong class="text-slate-300">${w.issuer || 'الإدارة'}</strong></span>
-                    </div>
-                `).join('');
-            } else {
-                warnList.innerHTML = `<p class="text-xs text-slate-500 text-center py-2">لا توجد أي تحذيرات مسجلة بحقك.</p>`;
-            }
-        }
-        
-        updatePlayerChart(p.points);
-    }
-}
-
-function initChart() {
-    const ctx = document.getElementById('playerPerformanceChart');
-    if (!ctx) return;
-    if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
-    chartInstance = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: ['التسجيل', 'الأسبوع 1', 'الأسبوع 2', 'الأسبوع 3', 'الحالي'],
-            datasets: [{ label: 'تطور النقاط والأداء', data: [0, 0, 0, 0, 0], borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', tension: 0.4, fill: true }]
-        },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#cbd5e1', font: { family: 'Cairo' } } } }, scales: { x: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } }, y: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } } } }
+        author: `${currentUser.rank || ''} ${currentUser.name}`,
+        date: new Date().toLocaleDateString('ar-SA')
     });
-}
-
-function updatePlayerChart(points) {
-    if (!chartInstance) return;
-    chartInstance.data.datasets[0].data = [0, Math.round(points*0.3), Math.round(points*0.6), Math.round(points*0.85), points];
-    chartInstance.update();
+    playAlertSound();
+    addAuditLog(`أصدر تعميماً عسكرياً بعنوان: ${title}`);
+    saveSystemData();
+    e.target.reset();
+    showAlert('تم نشر التعميم.');
 }
