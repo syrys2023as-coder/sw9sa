@@ -22,8 +22,10 @@ let announcements = [];
 let guardDuties = [];
 let auditLogs = [];
 let systemNotifications = [];
+let militaryUniforms = []; // قائمة أكواد وملابس القطاعات
 let currentUser = null;
 let activeAdminTabId = 'tab-members';
+let activeUniformTab = 'general-patrols'; // القسم الافتراضي لصفحة الملابس
 
 const savedUserSession = localStorage.getItem('mp_current_user');
 if (savedUserSession) {
@@ -85,6 +87,7 @@ db.collection("military_police").doc("system_data").onSnapshot((doc) => {
         guardDuties = data.guardDuties || [];
         auditLogs = data.auditLogs || [];
         systemNotifications = data.systemNotifications || [];
+        militaryUniforms = data.militaryUniforms || [];
 
         if (currentUser && !currentUser.onDuty) {
             if (currentUser.id === 'root_commander') {
@@ -117,6 +120,7 @@ function saveSystemData() {
         guardDuties,
         auditLogs,
         systemNotifications,
+        militaryUniforms,
         rootCommanderProfile: currentUser && currentUser.id === 'root_commander' ? {
             rank: currentUser.rank,
             codeNumber: currentUser.codeNumber || 1,
@@ -205,7 +209,7 @@ function checkAdminPerm(permKey, permNameMsg = 'الصلاحية المطلوب�
 }
 
 window.switchView = function(view) {
-    ['home', 'login', 'duty', 'admin', 'member-dashboard'].forEach(v => {
+    ['home', 'login', 'duty', 'admin', 'member-dashboard', 'uniforms-view'].forEach(v => {
         const el = document.getElementById(`view-${v}`);
         if (el) el.classList.add('hidden');
     });
@@ -221,8 +225,12 @@ window.switchView = function(view) {
     } else if (view === 'member-dashboard') {
         if (!currentUser) { switchView('login'); return; }
         renderMemberDashboard();
+    } else if (view === 'uniforms-view') {
+        renderUniformsPage();
     }
-    document.getElementById(`view-${view}`).classList.remove('hidden');
+    
+    const targetEl = document.getElementById(`view-${view}`);
+    if (targetEl) targetEl.classList.remove('hidden');
 }
 
 window.switchAdminTab = function(tabId, btnEl) {
@@ -250,6 +258,12 @@ window.switchAdminTab = function(tabId, btnEl) {
 window.copyDiscordId = function(discordId) {
     navigator.clipboard.writeText(discordId).then(() => {
         showAlert(`تم نسخ آيدي الديسكورد بنجاح: ${discordId}`);
+    });
+}
+
+window.copyUniformCode = function(codeText) {
+    navigator.clipboard.writeText(codeText).then(() => {
+        showAlert(`تم نسخ الكود بنجاح: ${codeText}`);
     });
 }
 
@@ -352,6 +366,9 @@ function refreshAllUI() {
     renderDutyPanel();
     if (currentUser && currentUser.id !== 'root_commander') {
         renderMemberDashboard();
+    }
+    if (!document.getElementById('view-uniforms-view').classList.contains('hidden')) {
+        renderUniformsPage();
     }
 }
 
@@ -504,447 +521,130 @@ window.renderPublicRoster = function() {
     `).join('');
 }
 
-function renderDutyPanel() {
-    const container = document.getElementById('duty-content');
+// === صفحة ملابس القطاعات والشرطة العسكرية ===
+window.switchUniformTab = function(tabKey) {
+    activeUniformTab = tabKey;
+    renderUniformsPage();
+}
+
+window.renderUniformsPage = function() {
+    const container = document.getElementById('uniforms-content-area');
     if (!container) return;
-    if (!currentUser) {
-        container.innerHTML = `<p class="text-xs text-slate-500">سجل الدخول بحساب معتمد للمناوبة.</p><button onclick="switchView('login')" class="mt-3 px-4 py-2 bg-red-600 text-white rounded-xl text-xs">تسجيل الدخول</button>`;
-        return;
+
+    // التحقق هل لديه صلاحية التعديل (manageUniforms أو القائد العام)
+    const canEdit = currentUser && (currentUser.id === 'root_commander' || currentUser.permissions?.manageUniforms);
+
+    const categories = [
+        { key: 'general-patrols', name: 'دوريات الأمن العام' },
+        { key: 'road-security', name: 'أمن الطرق' },
+        { key: 'traffic', name: 'المرور' },
+        { key: 'governorate-police', name: 'شرطة المحافظات' }
+    ];
+
+    let tabsHtml = categories.map(c => `
+        <button onclick="switchUniformTab('${c.key}')" class="px-4 py-2.5 rounded-xl font-bold text-xs transition ${activeUniformTab === c.key ? 'bg-red-600 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}">
+            ${c.name}
+        </button>
+    `).join('');
+
+    const filteredItems = militaryUniforms.filter(u => u.category === activeUniformTab);
+    const activeCategoryName = categories.find(c => c.key === activeUniformTab)?.name || '';
+
+    let itemsHtml = '';
+    if (filteredItems.length === 0) {
+        itemsHtml = `<div class="p-8 text-center text-slate-400 text-xs">لا توجد أكواد ملابس مضافة لهذا القسم حالياً.</div>`;
+    } else {
+        itemsHtml = `<div class="grid grid-cols-1 md:grid-cols-2 gap-4">` + filteredItems.map(item => `
+            <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col justify-between gap-3 text-xs">
+                <div>
+                    <div class="flex justify-between items-start gap-2">
+                        <h4 class="font-black text-slate-900 text-sm">${item.title}</h4>
+                        <span class="px-2 py-0.5 bg-red-100 text-red-700 font-bold rounded-md text-[10px]">${activeCategoryName}</span>
+                    </div>
+                    <p class="text-slate-600 mt-1">${item.description || 'لا توجد تفاصيل إضافية.'}</p>
+                </div>
+                <div class="flex items-center justify-between pt-2 border-t border-slate-200">
+                    <span class="font-mono bg-slate-900 text-white px-3 py-1 rounded-lg text-xs font-bold">${item.code}</span>
+                    <div class="flex gap-2">
+                        <button onclick="copyUniformCode('${item.code}')" class="px-3 py-1 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition">نسخ الكود</button>
+                        ${canEdit ? `<button onclick="deleteUniformItem('${item.id}')" class="px-2.5 py-1 bg-rose-50 text-rose-600 font-bold rounded-lg border border-rose-200">حذف</button>` : ''}
+                    </div>
+                </div>
+            </div>
+        `).join('') + `</div>`;
+    }
+
+    let addFormHtml = '';
+    if (canEdit) {
+        addFormHtml = `
+            <div class="mt-6 p-5 bg-white border border-slate-200 rounded-2xl shadow-sm space-y-3">
+                <h4 class="font-black text-slate-900 text-xs border-b pb-2">➕ إضافة كود لبس جديد إلى (${activeCategoryName})</h4>
+                <form onsubmit="handleAddNewUniform(event)" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <input type="text" id="uniform-title" placeholder="اسم اللبس (مثال: لبس رسمي صيفي)" required class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold focus:outline-none focus:border-red-600">
+                    <input type="text" id="uniform-code" placeholder="الكود أو الرقم (مثال: /setuniform 12)" required class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold focus:outline-none focus:border-red-600">
+                    <input type="text" id="uniform-desc" placeholder="وصف او ملاحظة (اختياري)" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold focus:outline-none focus:border-red-600">
+                    <button type="submit" class="md:col-span-3 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs shadow-md transition">حفظ وإضافة الكود</button>
+                </form>
+            </div>
+        `;
+    } else {
+        addFormHtml = `<p class="mt-4 text-[11px] text-slate-400 text-center">ملاحظة: إضافة أو تعديل الأكواد مقتصر على أصحاب الصلاحيات المخصصة فقط.</p>`;
     }
 
     container.innerHTML = `
-        <div class="space-y-4">
-            <span class="px-4 py-1.5 bg-red-600 text-white font-black rounded-xl text-sm inline-block">سيف ${currentUser.codeNumber || 1}</span>
-            <h3 class="text-xl font-black text-slate-900">${currentUser.rank} / ${currentUser.name}</h3>
-            <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200">
-                <span class="text-xs text-slate-400 block">إجمالي رصيد الوقت الفعلي</span>
-                <span id="live-duty-timer" class="text-lg font-black text-red-600">${formatTimeDetailed(currentUser.totalSeconds || 0)}</span>
-            </div>
-            ${currentUser.onDuty ? `
-                <button onclick="toggleDuty(false)" class="w-full py-3.5 bg-slate-900 text-white font-bold rounded-xl text-xs">تسجيل خروج من المناوبة</button>
-            ` : `
-                <button onclick="toggleDuty(true)" class="w-full py-3.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs shadow-md">تسجيل دخول للمناوبة</button>
-            `}
+        <div class="space-y-6">
+            <div class="flex flex-wrap gap-2 border-b pb-4">${tabsHtml}</div>
+            <div>${itemsHtml}</div>
+            ${addFormHtml}
         </div>
     `;
 }
 
-setInterval(() => {
-    if (currentUser && currentUser.onDuty) {
-        currentUser.totalSeconds = (currentUser.totalSeconds || 0) + 1;
-        
-        if (currentUser.id !== 'root_commander') {
-            const mObj = members.find(m => String(m.id) === String(currentUser.id));
-            if (mObj) mObj.totalSeconds = currentUser.totalSeconds;
-        }
-        localStorage.setItem('mp_current_user', JSON.stringify(currentUser));
-
-        const timerEl = document.getElementById('live-duty-timer');
-        if (timerEl) {
-            timerEl.innerText = formatTimeDetailed(currentUser.totalSeconds);
-        }
-    }
-}, 1000);
-
-window.toggleDuty = function(start) {
-    if (!currentUser) return;
-
-    if (start) {
-        if (currentUser.onDuty) return;
-        currentUser.onDuty = true;
-        
-        if (currentUser.id !== 'root_commander') {
-            const idx = members.findIndex(m => String(m.id) === String(currentUser.id));
-            if (idx !== -1) members[idx].onDuty = true;
-        }
-
-        playAlertSound();
-        pushNotification('تسجيل دخول', `سجل ${currentUser.rank} ${currentUser.name} دخولاً للمناوبة.`);
-        addAuditLog(`سجل دخول للمناوبة: ${currentUser.rank} ${currentUser.name}`);
-        showAlert('تم تسجيل دخولك للميدان وبدأ احتساب الوقت.');
-        saveSystemData();
-    } else {
-        if (!currentUser.onDuty) return;
-        currentUser.onDuty = false;
-
-        if (currentUser.id !== 'root_commander') {
-            const idx = members.findIndex(m => String(m.id) === String(currentUser.id));
-            if (idx !== -1) {
-                members[idx].totalSeconds = currentUser.totalSeconds;
-                members[idx].onDuty = false;
-            }
-        }
-
-        playAlertSound();
-        pushNotification('تسجيل خروج', `سجل ${currentUser.rank} ${currentUser.name} خروجاً من المناوبة.`);
-        addAuditLog(`سجل خروج من المناوبة: ${currentUser.rank} ${currentUser.name}`);
-        showAlert(`تم تسجيل خروجك من المناوبة بنجاح.`);
-        saveSystemData();
-    }
-    
-    localStorage.setItem('mp_current_user', JSON.stringify(currentUser));
-    renderDutyPanel();
-    renderPublicRoster();
-}
-
-window.renderMemberDashboard = function() {
-    const container = document.getElementById('view-member-dashboard');
-    if (!container || !currentUser) return;
-
-    const myGuards = guardDuties.filter(g => String(g.memberId) === String(currentUser.id));
-    const myWarnings = currentUser.warnings || [];
-
-    const guardBox = document.getElementById('member-guard-duty-box');
-    if (guardBox) {
-        if (myGuards.length > 0) {
-            const activeG = myGuards[0];
-            guardBox.classList.remove('hidden');
-            guardBox.innerHTML = `
-                <div class="flex flex-col md:flex-row justify-between items-center gap-4">
-                    <div>
-                        <span class="px-2.5 py-1 bg-red-600 text-white font-black rounded-lg text-xs">أمر خفارة رسمي جديد</span>
-                        <h3 class="text-base font-black text-slate-900 mt-2">الموقع: ${activeG.location} (${activeG.durationMins} دقيقة)</h3>
-                        <p class="text-xs text-slate-500 mt-1">ملاحظة: ${activeG.note || 'لا توجد ملاحظات'}</p>
-                    </div>
-                    <div class="w-full md:w-auto">
-                        ${activeG.videoUrl ? `
-                            <div class="flex items-center gap-2">
-                                <span class="text-emerald-600 font-bold text-xs">✓ تم إرسال رابط يوتيوب</span>
-                                <button onclick="openVideoModal('${activeG.videoUrl}')" class="px-3 py-1.5 bg-slate-900 text-white font-bold rounded-xl text-xs shadow">🎥 فتح يوتيوب في نافذة خارجية</button>
-                            </div>
-                        ` : `
-                            <div class="flex flex-col gap-2 w-full">
-                                <div class="flex gap-2 items-center">
-                                    <input type="text" id="guard-video-link-input" placeholder="الصق رابط يوتيوب فقط هنا (youtube.com أو youtu.be)..." class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:border-red-600 flex-1">
-                                    <button onclick="submitGuardVideoLink(${activeG.id})" class="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs shadow-md whitespace-nowrap">إرسال الرابط</button>
-                                </div>
-                                <span class="text-[10px] text-red-600 font-bold">⚠️ تنبيه: يسمح فقط بروابط يوتيوب الرسمية (يتم رفض أي رابط آخر).</span>
-                            </div>
-                        `}
-                    </div>
-                </div>
-            `;
-        } else {
-            guardBox.classList.add('hidden');
-        }
-    }
-
-    const warnList = document.getElementById('member-warnings-list');
-    if (warnList) {
-        warnList.innerHTML = myWarnings.length === 0 ? `<p class="text-xs text-slate-400">سجل نظيف، لا توجد أي تحذيرات مسجلة.</p>` : myWarnings.map(w => `
-            <div class="p-3 bg-rose-50 border border-rose-100 rounded-xl text-xs text-rose-800 font-bold flex justify-between">
-                <span>${w.reason}</span>
-                <span class="text-rose-400">${w.date}</span>
-            </div>
-        `).join('');
-    }
-
-    const annList = document.getElementById('member-announcements-list');
-    if (annList) {
-        annList.innerHTML = announcements.length === 0 ? `<p class="text-xs text-slate-400">لا توجد تعاميم حالياً.</p>` : announcements.map(a => `
-            <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-1 text-xs">
-                <span class="font-black text-slate-900 text-sm block">${a.title}</span>
-                <p class="text-slate-700">${a.body}</p>
-                <span class="text-[10px] text-slate-400 block pt-1">بواسطة: ${a.author} (${a.date})</span>
-            </div>
-        `).join('');
-    }
-
-    document.getElementById('member-dash-code').innerText = `سيف ${currentUser.codeNumber}`;
-    document.getElementById('member-dash-name').innerText = `${currentUser.rank} / ${currentUser.name}`;
-    document.getElementById('member-dash-meta').innerText = `ديسكورد: ${currentUser.discordId || 'غير مسجل'} | المنصب: ${currentUser.positionTitle || 'فرد'}`;
-}
-
-window.submitGuardVideoLink = function(guardId) {
-    const inputEl = document.getElementById('guard-video-link-input');
-    if (!inputEl) return;
-    const linkVal = inputEl.value.trim();
-
-    if (!linkVal) {
-        showAlert('يرجى لصق رابط يوتيوب أولاً!', true);
-        return;
-    }
-
-    // التحقق من أن الرابط يتبع لموقع يوتيوب حصراً
-    const isYoutube = linkVal.includes('youtube.com') || linkVal.includes('youtu.be');
-    if (!isYoutube) {
-        showAlert('❌ مرفوض! يسمح فقط بروابط يوتيوب (YouTube). أي رابط آخر غير مقبول.', true);
-        return;
-    }
-
-    const duty = guardDuties.find(g => String(g.id) === String(guardId));
-    if (duty) {
-        duty.videoUrl = linkVal;
-        duty.status = 'completed';
-    }
-
-    saveSystemData();
-    showAlert('تم التحقق وقبول رابط يوتيوب وحفظه بنجاح.');
-    renderMemberDashboard();
-    renderAdminPanels();
-}
-
-window.openVideoModal = function(url) {
-    if (!url) return;
-    window.open(url, '_blank');
-}
-
-window.handleUpdateCommanderProfile = function(e) {
+window.handleAddNewUniform = function(e) {
     e.preventDefault();
-    if (!currentUser || currentUser.id !== 'root_commander') return;
-
-    const newRank = document.getElementById('commander-edit-rank').value;
-    const newCode = parseInt(document.getElementById('commander-edit-code').value);
-
-    if (isNaN(newCode) || newCode < 1) {
-        showAlert('يرجى إدخال رقم كود صحيح.', true);
+    if (!currentUser || (currentUser.id !== 'root_commander' && !currentUser.permissions?.manageUniforms)) {
+        showAlert('ليس لديك صلاحية إضافة أو تعديل أكواد الملابس', true);
         return;
     }
 
-    currentUser.rank = newRank;
-    currentUser.codeNumber = newCode;
-    localStorage.setItem('mp_current_user', JSON.stringify(currentUser));
+    const title = document.getElementById('uniform-title').value.trim();
+    const code = document.getElementById('uniform-code').value.trim();
+    const description = document.getElementById('uniform-desc').value.trim();
 
-    playAlertSound();
-    addAuditLog(`حدث القائد العام بياناته (رتبة: ${newRank}, كود: سيف ${newCode})`);
-    saveSystemData();
-    refreshAllUI();
-    showAlert('تم تحديث ملف القائد العام بنجاح.');
-}
-
-function renderAdminPanels() {
-    if (!currentUser) return;
-
-    if (currentUser.id === 'root_commander') {
-        const rankEl = document.getElementById('commander-edit-rank');
-        const codeEl = document.getElementById('commander-edit-code');
-        if (rankEl && currentUser.rank) rankEl.value = currentUser.rank;
-        if (codeEl) codeEl.value = currentUser.codeNumber || 1;
-    }
-
-    const membersTbody = document.getElementById('admin-members-tbody');
-    if (membersTbody) {
-        const approved = [...members].sort((a, b) => a.codeNumber - b.codeNumber);
-        membersTbody.innerHTML = approved.map(m => `
-            <tr>
-                <td class="p-4 font-black text-red-600">سيف ${m.codeNumber}</td>
-                <td class="p-4 font-bold text-slate-900">${m.rank} / ${m.name}</td>
-                <td class="p-4 font-mono text-xs">${m.discordId}</td>
-                <td class="p-4 text-xs">
-                    <span class="text-slate-700 block max-w-xs break-words mb-1">${m.adminNote || '<span class="text-slate-400">لا توجد ملاحظة</span>'}</span>
-                    <button onclick="editAdminNote(${m.id})" class="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded font-bold text-[10px]">✏️ ملاحظة</button>
-                </td>
-                <td class="p-4 font-mono font-bold text-red-600">${formatTimeDetailed(m.totalSeconds || 0)}</td>
-                <td class="p-4 flex flex-wrap gap-1">
-                    <button onclick="editMemberDetails(${m.id})" class="px-2 py-1 bg-red-50 text-red-600 rounded text-xs font-bold">تعديل الاسم/الكود</button>
-                    <button onclick="openCredentialsModal(${m.id})" class="px-2 py-1 bg-blue-50 text-blue-600 rounded text-xs font-bold">اليوزر/الباس</button>
-                    <button onclick="editMemberRank(${m.id})" class="px-2 py-1 bg-slate-100 rounded text-xs font-bold">رتبة</button>
-                    <button onclick="warnMember(${m.id})" class="px-2 py-1 bg-amber-500 text-white rounded text-xs font-bold">تحذير</button>
-                    <button onclick="dismissMember(${m.id})" class="px-2 py-1 bg-slate-900 text-white rounded text-xs font-bold">فصل</button>
-                </td>
-            </tr>
-        `).join('');
-    }
-
-    const inventoryTbody = document.getElementById('admin-inventory-tbody');
-    const topScorerName = document.getElementById('top-scorer-name');
-    const topScorerTime = document.getElementById('top-scorer-time');
-
-    let allPool = [...members];
-    if (!allPool.some(m => m.id === 'root_commander')) {
-        allPool.push({
-            id: 'root_commander',
-            name: 'قائد الشرطة العسكرية العام',
-            rank: currentUser.id === 'root_commander' ? currentUser.rank : 'فريق أول',
-            codeNumber: currentUser.id === 'root_commander' ? (currentUser.codeNumber || 1) : 1,
-            totalSeconds: currentUser.id === 'root_commander' ? (currentUser.totalSeconds || 0) : 0
-        });
-    }
-
-    allPool.sort((a, b) => (b.totalSeconds || 0) - (a.totalSeconds || 0));
-
-    if (allPool.length > 0 && topScorerName && topScorerTime) {
-        const top = allPool[0];
-        topScorerName.innerText = `${top.rank} / ${top.name} (سيف ${top.codeNumber})`;
-        topScorerTime.innerText = `إجمالي الوقت: ${formatTimeDetailed(top.totalSeconds || 0)}`;
-    }
-
-    if (inventoryTbody) {
-        const approvedByCode = [...allPool].sort((a, b) => a.codeNumber - b.codeNumber);
-        inventoryTbody.innerHTML = approvedByCode.map(m => `
-            <tr>
-                <td class="p-4 font-black text-red-600">سيف ${m.codeNumber}</td>
-                <td class="p-4 font-bold text-slate-900">${m.rank} / ${m.name}</td>
-                <td class="p-4 font-mono font-bold text-red-600">${formatTimeDetailed(m.totalSeconds || 0)}</td>
-                <td class="p-4 flex gap-2">
-                    <button onclick="adjustMemberTime(${m.id}, 3600)" class="px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded text-xs font-bold border border-emerald-200">+ ساعة</button>
-                    <button onclick="adjustMemberTime(${m.id}, -3600)" class="px-2.5 py-1 bg-amber-50 text-amber-700 rounded text-xs font-bold border border-emerald-200">- ساعة</button>
-                    <button onclick="setCustomMemberTime(${m.id})" class="px-2.5 py-1 bg-slate-100 text-slate-700 rounded text-xs font-bold">تعديل دقيق</button>
-                </td>
-            </tr>
-        `).join('');
-    }
-
-    const warnManageList = document.getElementById('admin-warnings-management-list');
-    if (warnManageList) {
-        const approved = [...members].sort((a, b) => a.codeNumber - b.codeNumber);
-        let allWarningsHtml = '';
-        approved.forEach(m => {
-            if (m.warnings && m.warnings.length > 0) {
-                m.warnings.forEach((w, idx) => {
-                    allWarningsHtml += `
-                        <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center text-xs">
-                            <div>
-                                <span class="font-black text-slate-900 block">${m.rank} / ${m.name} (سيف ${m.codeNumber})</span>
-                                <span class="text-slate-600">${w.reason} <strong class="text-slate-400">(${w.date})</strong></span>
-                            </div>
-                            <button onclick="deleteWarning(${m.id}, ${idx})" class="px-2 py-1 bg-rose-50 text-rose-600 rounded font-bold">حذف التحذير</button>
-                        </div>
-                    `;
-                });
-            }
-        });
-        warnManageList.innerHTML = allWarningsHtml || `<p class="text-xs text-slate-400">لا توجد تحذيرات مسجلة للأفراد حالياً.</p>`;
-    }
-
-    const dismissedTbody = document.getElementById('admin-dismissed-tbody');
-    if (dismissedTbody) {
-        dismissedTbody.innerHTML = dismissedMembers.length === 0 ? `<tr><td colspan="5" class="p-6 text-center text-slate-400">لا يوجد أفراد مفصولون في الأرشيف.</td></tr>` : dismissedMembers.map((d, index) => `
-            <tr>
-                <td class="p-4 font-bold text-slate-900">${d.rank} / ${d.name}</td>
-                <td class="p-4">${d.rank}</td>
-                <td class="p-4 font-mono">${d.discordId}</td>
-                <td class="p-4 text-xs text-rose-600">فصل في: ${d.dismissDate}</td>
-                <td class="p-4"><button onclick="deleteDismissed(${index})" class="px-2 py-1 bg-rose-50 text-rose-600 rounded font-bold text-xs">حذف نهائي</button></td>
-            </tr>
-        `).join('');
-    }
-
-    const permsOverviewContainer = document.getElementById('admin-permissions-overview-container');
-    if (permsOverviewContainer) {
-        const leaders = members.filter(m => m.permissions && Object.keys(m.permissions).length > 0);
-        permsOverviewContainer.innerHTML = leaders.length === 0 ? `<p class="text-xs text-slate-400">لا يوجد مسؤولون بصلاحيات مخصصة حالياً.</p>` : leaders.map(l => `
-            <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3 text-xs">
-                <div class="flex justify-between items-center">
-                    <div>
-                        <span class="font-black text-slate-900 text-sm block">${l.rank} / ${l.name} (سيف ${l.codeNumber})</span>
-                        <span class="text-red-600 font-bold">${l.positionTitle}</span>
-                    </div>
-                    <div class="space-x-2">
-                        <button onclick="openEditLeaderPermissionsModal(${l.id})" class="px-3 py-1.5 bg-blue-50 text-blue-600 font-bold rounded-xl">⚙️ تعديل الصلاحيات</button>
-                        <button onclick="revokeLeaderRole(${l.id})" class="px-3 py-1.5 bg-rose-50 text-rose-600 font-bold rounded-xl">🗑️ إزالة من المسؤولين</button>
-                    </div>
-                </div>
-                <div class="flex flex-wrap gap-1 pt-1 border-t border-slate-100">
-                    ${Object.entries(l.permissions).map(([k, v]) => `
-                        <span class="px-2 py-0.5 rounded text-[10px] font-bold ${v ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-200 text-slate-500'}">
-                            ${k}: ${v ? 'مفعلة ✓' : 'مغلقة ✕'}
-                        </span>
-                    `).join('')}
-                </div>
-            </div>
-        `).join('');
-    }
-
-    const auditLogsContainer = document.getElementById('admin-audit-logs-tbody');
-    if (auditLogsContainer) {
-        auditLogsContainer.innerHTML = auditLogs.length === 0 ? `<tr><td colspan="3" class="p-6 text-center text-slate-400">لا توجد عمليات مسجلة في الـ Log.</td></tr>` : auditLogs.map(l => `
-            <tr>
-                <td class="p-4 font-mono text-[11px] text-slate-500">${l.date}</td>
-                <td class="p-4 font-bold text-red-600">${l.author}</td>
-                <td class="p-4 text-slate-800">${l.text}</td>
-            </tr>
-        `).join('');
-    }
-
-    const manageAnnList = document.getElementById('admin-announcements-manage-list');
-    if (manageAnnList) {
-        manageAnnList.innerHTML = announcements.length === 0 ? `<p class="text-xs text-slate-400">لا توجد تعاميم منشورة حالياً.</p>` : announcements.map((a, index) => `
-            <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex justify-between items-center text-xs">
-                <div>
-                    <span class="font-black text-slate-900 text-sm block">${a.title}</span>
-                    <p class="text-slate-600 mt-1">${a.body}</p>
-                    <span class="text-[10px] text-slate-400 block mt-1">بواسطة: ${a.author} (${a.date})</span>
-                </div>
-                <div>
-                    <button onclick="deleteAnnouncement(${index})" class="px-3 py-1.5 bg-rose-50 text-rose-600 font-bold rounded-xl">🗑️ حذف التعميم</button>
-                </div>
-            </div>
-        `).join('');
-    }
-
-    renderGuardDuties();
-}
-
-window.adjustMemberTime = function(id, secondsDelta) {
-    if (!checkAdminPerm('editHours', 'تعديل وزيادة/نقصان الساعات')) return;
-
-    if (id === 'root_commander') {
-        currentUser.totalSeconds = Math.max(0, (currentUser.totalSeconds || 0) + secondsDelta);
-        localStorage.setItem('mp_current_user', JSON.stringify(currentUser));
-    } else {
-        const m = members.find(x => String(x.id) === String(id));
-        if (m) {
-            m.totalSeconds = Math.max(0, (m.totalSeconds || 0) + secondsDelta);
-        }
-    }
-    saveSystemData();
-    showAlert('تم تعديل رصيد الساعات بنجاح.');
-    renderAdminPanels();
-}
-
-window.setCustomMemberTime = function(id) {
-    if (!checkAdminPerm('editHours', 'تعديل الساعات بدقة')) return;
-
-    let currentSecs = 0;
-    let targetName = '';
-    if (id === 'root_commander') {
-        currentSecs = currentUser.totalSeconds || 0;
-        targetName = 'القائد العام';
-    } else {
-        const m = members.find(x => String(x.id) === String(id));
-        if (!m) return;
-        currentSecs = m.totalSeconds || 0;
-        targetName = m.name;
-    }
-
-    const currentHours = Math.floor(currentSecs / 3600);
-    showCustomPrompt(`أدخل عدد الساعات الجديدة للفرد (${targetName}):`, currentHours, (val) => {
-        if (val === null) return;
-        const newHours = parseInt(val);
-        if (isNaN(newHours) || newHours < 0) {
-            showAlert('يرجى إدخال رقم صحيح.', true);
-            return;
-        }
-        const newTotalSecs = newHours * 3600;
-        if (id === 'root_commander') {
-            currentUser.totalSeconds = newTotalSecs;
-            localStorage.setItem('mp_current_user', JSON.stringify(currentUser));
-        } else {
-            const m = members.find(x => String(x.id) === String(id));
-            if (m) m.totalSeconds = newTotalSecs;
-        }
-        saveSystemData();
-        showAlert('تم ضبط ساعات العمل بدقة بنجاح.');
-        renderAdminPanels();
+    militaryUniforms.push({
+        id: Date.now().toString(),
+        category: activeUniformTab,
+        title,
+        code,
+        description,
+        addedBy: currentUser.name
     });
+
+    saveSystemData();
+    addAuditLog(`أضاف كود ملابس جديد (${title}) لقسم ${activeUniformTab}`);
+    showAlert('تم إضافة كود اللبس بنجاح.');
+    renderUniformsPage();
 }
 
-window.deleteAnnouncement = function(index) {
-    if (!checkAdminPerm('canAnnounce', 'حذف التعاميم العسكرية')) return;
-    if (confirm('هل أنت متأكد من حذف هذا التعميم؟')) {
-        announcements.splice(index, 1);
-        saveSystemData();
-        showAlert('تم حذف التعميم بنجاح.');
-        renderAdminPanels();
-    }
-}
-
-window.openEditLeaderPermissionsModal = function(id) {
-    if (!currentUser || (currentUser.id !== 'root_commander' && !currentUser.positionTitle?.includes('نائب'))) {
-        showAlert('ليس لديك صلاحية تعديل صلاحيات المسؤولين', true);
+window.deleteUniformItem = function(itemId) {
+    if (!currentUser || (currentUser.id !== 'root_commander' && !currentUser.permissions?.manageUniforms)) {
+        showAlert('ليس لديك صلاحية حذف أكواد الملابس', true);
         return;
     }
+
+    if (confirm('هل أنت متأكد من حذف كود اللبس هذا؟')) {
+        militaryUniforms = militaryUniforms.filter(u => u.id !== itemId);
+        saveSystemData();
+        addAuditLog(`حذف كود ملابس`);
+        showAlert('تم حذف الكود بنجاح.');
+        renderUniformsPage();
+    }
+}
+
+// تحديث نافذة صلاحيات المسؤولين ليشمل صلاحية إدارة الملابس (manageUniforms)
+const originalOpenEditLeaderPermissionsModal = window.openEditLeaderPermissionsModal;
+window.openEditLeaderPermissionsModal = function(id) {
+    // استدعاء المودال الأساسي وإضافة خيار الملابس إن أمكن أو تحديثه
     const l = members.find(x => String(x.id) === String(id));
     if (!l) return;
     const p = l.permissions || {};
@@ -976,12 +676,15 @@ window.openEditLeaderPermissionsModal = function(id) {
                 <label class="flex items-center gap-2 p-2 bg-slate-50 rounded-xl cursor-pointer"><input type="checkbox" id="edit-perm-announce" ${p.canAnnounce ? 'checked' : ''}> التعاميم والتنبيهات</label>
                 <label class="flex items-center gap-2 p-2 bg-slate-50 rounded-xl cursor-pointer"><input type="checkbox" id="edit-perm-credentials" ${p.editCredentials ? 'checked' : ''}> اليوزر والباسورد</label>
                 <label class="flex items-center gap-2 p-2 bg-slate-50 rounded-xl cursor-pointer"><input type="checkbox" id="edit-perm-logs" ${p.viewLogs ? 'checked' : ''}> سجل العمليات</label>
+                <label class="flex items-center gap-2 p-2 bg-red-50 text-red-800 rounded-xl cursor-pointer col-span-2"><input type="checkbox" id="edit-perm-uniforms" ${p.manageUniforms ? 'checked' : ''}> 🧥 إدارة أكواد وملابس القطاعات</label>
             </div>
             <button onclick="saveLeaderPermissions('${l.id}')" class="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-md">حفظ التعديلات</button>
         </div>
     `;
-}
+};
 
+// تحديث حفظ الصلاحيات ليشمل manageUniforms
+const originalSaveLeaderPermissions = window.saveLeaderPermissions;
 window.saveLeaderPermissions = function(id) {
     const l = members.find(x => String(x.id) === String(id));
     if (!l) return;
@@ -998,352 +701,13 @@ window.saveLeaderPermissions = function(id) {
         editHours: document.getElementById('edit-perm-edithours').checked,
         canAnnounce: document.getElementById('edit-perm-announce').checked,
         editCredentials: document.getElementById('edit-perm-credentials').checked,
-        viewLogs: document.getElementById('edit-perm-logs').checked
+        viewLogs: document.getElementById('edit-perm-logs').checked,
+        manageUniforms: document.getElementById('edit-perm-uniforms')?.checked || false
     };
 
     saveSystemData();
     document.getElementById('edit-perms-modal').remove();
     showAlert('تم تحديث صلاحيات المسؤول بنجاح.');
-}
+};
 
-window.revokeLeaderRole = function(id) {
-    if (!currentUser || (currentUser.id !== 'root_commander' && !currentUser.positionTitle?.includes('نائب'))) {
-        showAlert('ليس لديك صلاحية إزالة المسؤولين', true);
-        return;
-    }
-    const l = members.find(x => String(x.id) === String(id));
-    if (!l) return;
-    if (confirm(`هل أنت متأكد من إزالة الصلاحيات القيادية عن (${l.name}) وإعادته كفرد عادي؟`)) {
-        l.permissions = {};
-        l.positionTitle = 'فرد شرطة عسكرية';
-        saveSystemData();
-        showAlert('تم سحب المنصب القيادي بنجاح.');
-    }
-}
-
-window.editAdminNote = function(id) {
-    if (!checkAdminPerm('manageNotes', 'تعديل الملاحظات السرية')) return;
-    const m = members.find(x => String(x.id) === String(id));
-    if (!m) return;
-    showCustomPrompt(`أدخل الملاحظة السرية الخاصة بالفرد (${m.name}):`, m.adminNote || '', (val) => {
-        if (val !== null) {
-            m.adminNote = val.trim();
-            saveSystemData();
-            showAlert('تم حفظ الملاحظة بنجاح.');
-        }
-    });
-}
-
-window.editMemberDetails = function(id) {
-    if (!checkAdminPerm('editName', 'تعديل أسماء وأكواد الأفراد')) return;
-    const m = members.find(x => String(x.id) === String(id));
-    showCustomPrompt(`تعديل اسم الفرد (${m.name}):`, m.name, (newName) => {
-        if (newName === null) return;
-        showCustomPrompt(`تعديل رقم كود السيف للفرد (${m.name}):`, m.codeNumber, (newCodeInput) => {
-            if (newCodeInput === null) return;
-            const newCode = parseInt(newCodeInput);
-            if (isNaN(newCode) || newCode < 1) {
-                showAlert('يرجى إدخال رقم كود صحيح.', true);
-                return;
-            }
-            m.name = newName.trim();
-            m.codeNumber = newCode;
-            saveSystemData();
-            showAlert('تم تحديث بيانات الفرد بنجاح.');
-        });
-    });
-}
-
-window.openCredentialsModal = function(id) {
-    if (!checkAdminPerm('editCredentials', 'تعديل بيانات الدخول (يوزر وباسورد)')) return;
-    const m = members.find(x => String(x.id) === String(id));
-    if (!m) return;
-    showCustomPrompt(`تعديل اسم المستخدم (اليوزر) للفرد (${m.name}):`, m.username || '', (newUsername) => {
-        if (newUsername === null) return;
-        showCustomPrompt(`تعديل كلمة المرور الجديدة للفرد (${m.name}):`, m.password || '', (newPassword) => {
-            if (newPassword === null) return;
-            if (!newUsername.trim() || !newPassword.trim()) {
-                showAlert('لا يمكن ترك حقل اليوزر أو الباسورد فارغاً!', true);
-                return;
-            }
-            m.username = newUsername.trim();
-            m.password = newPassword.trim();
-            playAlertSound();
-            addAuditLog(`عدل بيانات الدخول للفرد ${m.name}`);
-            saveSystemData();
-            showAlert('تم تحديث بيانات الدخول بنجاح.');
-        });
-    });
-}
-
-window.handleAdminCreateMember = function(e) {
-    e.preventDefault();
-    if (!checkAdminPerm('addMember', 'إضافة أفراد جدد للنظام')) return;
-
-    const name = document.getElementById('add-m-name').value.trim();
-    const rank = document.getElementById('add-m-rank').value;
-    const codeMode = document.getElementById('add-m-code-mode').value;
-    const customCode = parseInt(document.getElementById('add-m-code-num').value);
-    const discordId = document.getElementById('add-m-discord').value.trim();
-    const username = document.getElementById('add-m-username').value.trim();
-    const password = document.getElementById('add-m-password').value.trim();
-
-    let finalCode = getNextSwordCode();
-    if (codeMode === 'custom') {
-        if (isNaN(customCode) || customCode < 1) {
-            showAlert('يرجى إدخال رقم كود صحيح.', true);
-            return;
-        }
-        if (members.some(m => m.codeNumber === customCode)) {
-            showAlert(`⚠️ تنبيه: الكود سيف ${customCode} مستخدم بالفعل لفرد آخر!`, true);
-            return;
-        }
-        finalCode = customCode;
-    }
-
-    members.push({
-        id: Date.now(),
-        name,
-        rank,
-        codeNumber: finalCode,
-        discordId,
-        username,
-        password,
-        positionTitle: 'فرد شرطة عسكرية',
-        permissions: {},
-        totalSeconds: 0,
-        onDuty: false,
-        adminNote: '',
-        warnings: []
-    });
-
-    playAlertSound();
-    pushNotification('إضافة فرد', `تمت إضافة الفرد: ${rank} / ${name} (سيف ${finalCode})`);
-    addAuditLog(`أضاف فرداً جديداً: ${rank} / ${name} (سيف ${finalCode})`);
-    saveSystemData();
-    document.getElementById('admin-add-member-form').reset();
-    showAlert('تم إضافة الفرد بنجاح.');
-}
-
-window.editMemberRank = function(id) {
-    if (!checkAdminPerm('editRank', 'تعديل رتب الأفراد')) return;
-    const m = members.find(x => String(x.id) === String(id));
-    const ranksListStr = MILITARY_RANKS.join(', ');
-    showCustomPrompt(`اختر الرتبة الجديدة للفرد (${m.name}):\n(${ranksListStr})`, m.rank, (newRankInput) => {
-        if (!newRankInput || !MILITARY_RANKS.includes(newRankInput.trim())) return;
-        m.rank = newRankInput.trim();
-        saveSystemData();
-        refreshAllUI();
-        showAlert('تم تحديث الرتبة بنجاح.');
-    });
-}
-
-window.warnMember = function(id) {
-    if (!checkAdminPerm('warnMember', 'إرسال تحذيرات عسكرية للأفراد')) return;
-    const m = members.find(x => String(x.id) === String(id));
-    showCustomPrompt(`أدخل سبب التحذير للفرد (${m.name}):`, '', (reason) => {
-        if (reason && reason.trim()) {
-            if (!m.warnings) m.warnings = [];
-            m.warnings.push({ reason: reason.trim(), date: new Date().toLocaleDateString('ar-SA') });
-            saveSystemData();
-            showAlert('تم إرسال التحذير بنجاح.');
-            refreshAllUI();
-        }
-    });
-}
-
-window.deleteWarning = function(memberId, warnIdx) {
-    if (!checkAdminPerm('warnMember', 'إدارة وحذف التحذيرات')) return;
-    const m = members.find(x => String(x.id) === String(memberId));
-    if (!m) return;
-    if (confirm('هل أنت متأكد من حذف هذا التحذير؟')) {
-        m.warnings.splice(warnIdx, 1);
-        saveSystemData();
-        showAlert('تم حذف التحذير بنجاح.');
-        renderAdminPanels();
-    }
-}
-
-window.dismissMember = function(id) {
-    if (!checkAdminPerm('dismissMember', 'فصل الأفراد نهائياً')) return;
-    const m = members.find(x => String(x.id) === String(id));
-    if (confirm(`هل أنت متأكد من فصل ${m.name} نهائياً؟`)) {
-        dismissedMembers.push({ ...m, dismissDate: new Date().toLocaleDateString('ar-SA') });
-        members = members.filter(x => String(x.id) !== String(id));
-        saveSystemData();
-        showAlert('تم فصل الفرد ونقله للأرشيف.');
-    }
-}
-
-window.deleteDismissed = function(index) {
-    if (!checkAdminPerm('dismissMember', 'حذف المفصولين من الأرشيف')) return;
-    if (confirm('هل أنت متأكد من حذف هذا الفرد من الأرشيف نهائياً؟')) {
-        dismissedMembers.splice(index, 1);
-        saveSystemData();
-        renderAdminPanels();
-    }
-}
-
-window.clearAllDismissed = function() {
-    if (!checkAdminPerm('dismissMember', 'تفريغ أرشيف المفصولين')) return;
-    if (confirm('هل أنت متأكد من تفريغ أرشيف المفصولين بالكامل؟')) {
-        dismissedMembers = [];
-        saveSystemData();
-        renderAdminPanels();
-    }
-}
-
-window.handlePostAnnouncement = function(e) {
-    e.preventDefault();
-    if (!checkAdminPerm('canAnnounce', 'نشر التعاميم والتنبيهات العسكرية')) return;
-
-    const title = document.getElementById('ann-title').value.trim();
-    const body = document.getElementById('ann-body').value.trim();
-    
-    announcements.unshift({
-        id: Date.now(),
-        title,
-        body,
-        author: currentUser ? `${currentUser.rank || ''} ${currentUser.name}` : 'القيادة العليا',
-        date: new Date().toLocaleDateString('ar-SA')
-    });
-
-    playAlertSound();
-    pushNotification('تعميم عسكري جديد', title);
-    addAuditLog(`أصدر تعميماً عسكرياً بعنوان: ${title}`);
-    saveSystemData();
-    e.target.reset();
-    showAlert('تم نشر التعميم بنجاح.');
-    renderAdminPanels();
-}
-
-window.handleAssignGuardDuty = function(e) {
-    e.preventDefault();
-    if (!checkAdminPerm('manageGuards', 'تكليف الأفراد بأوامر خفارة')) return;
-
-    const memberId = parseInt(document.getElementById('guard-member-select').value);
-    const location = document.getElementById('guard-location').value.trim();
-    const durationMins = parseInt(document.getElementById('guard-duration-mins').value);
-    const note = document.getElementById('guard-note').value.trim();
-
-    const member = members.find(m => String(m.id) === String(memberId));
-    if (!member) return;
-
-    guardDuties.unshift({
-        id: Date.now(),
-        memberId: member.id,
-        memberName: member.name,
-        memberCode: member.codeNumber,
-        location,
-        durationMins,
-        note,
-        issuerName: currentUser.name,
-        issuerRank: currentUser.rank || 'قائد',
-        assignedAt: Date.now(),
-        status: 'pending'
-    });
-
-    playAlertSound();
-    pushNotification('أمر خفارة', `تم تكليف الفرد (${member.name}) بخفارة في ${location}`);
-    addAuditLog(`كلف الفرد ${member.name} بخفارة في ${location}`);
-    saveSystemData();
-    e.target.reset();
-    showAlert('تم إرسال أمر الخفارة للفرد بنجاح.');
-}
-
-function renderGuardDuties() {
-    const select = document.getElementById('guard-member-select');
-    if (select) {
-        const approved = [...members].sort((a, b) => a.codeNumber - b.codeNumber);
-        select.innerHTML = approved.map(m => `<option value="${m.id}">سيف ${m.codeNumber} - ${m.rank} / ${m.name}</option>`).join('');
-    }
-
-    const tbody = document.getElementById('admin-guards-tbody');
-    if (!tbody) return;
-    tbody.innerHTML = guardDuties.length === 0 ? `<tr><td colspan="5" class="p-6 text-center text-slate-400">لا توجد خفارات مسجلة حالياً.</td></tr>` : guardDuties.map(g => `
-        <tr>
-            <td class="p-4 font-bold">سيف ${g.memberCode} - ${g.memberName}</td>
-            <td class="p-4 text-xs">${g.location} <br><span class="text-slate-500">ملاحظة: ${g.note || 'لا توجد'}</span>
-                ${g.videoUrl ? `<br><button onclick="openVideoModal('${g.videoUrl}')" class="mt-1 px-3 py-1 bg-slate-900 text-white rounded-lg font-bold text-xs shadow inline-flex items-center gap-1">🎥 فتح يوتيوب خارجي</button>` : ''}
-            </td>
-            <td class="p-4 text-xs font-bold text-red-600">${g.issuerRank} / ${g.issuerName}</td>
-            <td class="p-4 text-xs">
-                ${(g.status === 'completed' || (g.videoUrl && g.videoUrl.trim() !== '')) ? '<span class="text-emerald-600 font-bold block">مكتملة (رابط يوتيوب معتمد)</span>' : '<span class="text-amber-600 font-bold block">بانتظار إرسال الرابط</span>'}
-            </td>
-            <td class="p-4"><button onclick="deleteGuard(${g.id})" class="px-2 py-1 bg-slate-200 rounded text-xs">حذف</button></td>
-        </tr>
-    `).join('');
-}
-
-window.deleteGuard = function(id) {
-    if (!checkAdminPerm('manageGuards', 'حذف أو إلغاء أوامر الخفارة')) return;
-    guardDuties = guardDuties.filter(g => String(g.id) !== String(id));
-    saveSystemData();
-    refreshAllUI();
-}
-
-window.handleCommanderCreateLeader = function(e) {
-    e.preventDefault();
-    if (currentUser && currentUser.id !== 'root_commander' && !currentUser.positionTitle?.includes('نائب')) {
-        showAlert('ليس لديك صلاحية تعيين المسؤولين أو منح الصلاحيات', true);
-        return;
-    }
-
-    const positionTitle = document.getElementById('lead-role-type').value;
-    const name = document.getElementById('lead-name').value.trim();
-    const rank = document.getElementById('lead-rank').value;
-    const manualCode = parseInt(document.getElementById('lead-code').value);
-    const discordId = document.getElementById('lead-discord').value.trim();
-    const username = document.getElementById('lead-username').value.trim();
-    const password = document.getElementById('lead-password').value.trim();
-
-    if (isNaN(manualCode) || manualCode < 1) {
-        showAlert('يرجى إدخال رقم سيف صحيح.', true);
-        return;
-    }
-
-    if (members.some(m => m.codeNumber === manualCode)) {
-        showAlert(`⚠️ تنبيه: كود السيف رقم ${manualCode} مستخدم بالفعل!`, true);
-        return;
-    }
-
-    const permissions = {
-        addMember: document.getElementById('perm-add-member')?.checked || false,
-        editName: document.getElementById('perm-edit-name')?.checked || false,
-        editRank: document.getElementById('perm-edit-rank')?.checked || false,
-        dismissMember: document.getElementById('perm-dismiss')?.checked || false,
-        warnMember: document.getElementById('perm-warn')?.checked || false,
-        manageGuards: document.getElementById('perm-guards')?.checked || false,
-        manageNotes: document.getElementById('perm-notes')?.checked || false,
-        inventoryManager: document.getElementById('perm-inventory')?.checked || false,
-        editHours: document.getElementById('perm-edit-hours')?.checked || false,
-        canAnnounce: document.getElementById('perm-announce')?.checked || false,
-        editCredentials: document.getElementById('perm-edit-credentials')?.checked || false,
-        viewLogs: document.getElementById('perm-view-logs')?.checked || false
-    };
-
-    members.push({
-        id: Date.now(),
-        name,
-        rank,
-        codeNumber: manualCode,
-        discordId,
-        username,
-        password,
-        positionTitle,
-        permissions,
-        totalSeconds: 0,
-        onDuty: false,
-        adminNote: '',
-        warnings: []
-    });
-
-    playAlertSound();
-    pushNotification('منصب قيادي جديد', `تم تعيين ${rank} / ${name} برقم سيف ${manualCode}`);
-    addAuditLog(`أنشأ منصب قيادي (${positionTitle}) لـ ${rank} ${name}`);
-    saveSystemData();
-    e.target.reset();
-    showAlert('تم تعيين المسؤول وتثبيت الصلاحيات بنجاح.');
-}
-
-refreshAllUI();
+renderDutyPanel();
