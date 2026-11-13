@@ -91,7 +91,6 @@ db.collection("military_police").doc("system_data").onSnapshot((doc) => {
         auditLogs = data.auditLogs || [];
         systemNotifications = data.systemNotifications || [];
 
-        // تحديث بيانات المستخدم الحالي فقط إذا لم يكن في حالة مناوبة نشطة لتفادي تداخل العداد
         if (currentUser && !currentUser.onDuty) {
             if (currentUser.id === 'root_commander') {
                 if (data.rootCommanderProfile) {
@@ -124,8 +123,7 @@ function saveSystemData() {
             rank: currentUser.rank,
             codeNumber: currentUser.codeNumber,
             totalSeconds: currentUser.totalSeconds || 0,
-            onDuty: currentUser.onDuty || false,
-            dutyStartTime: currentUser.dutyStartTime || null
+            onDuty: currentUser.onDuty || false
         } : null,
         updatedAt: Date.now()
     }).catch(err => console.error(err));
@@ -223,13 +221,11 @@ window.handleLogin = function(e) {
             let savedCode = 40;
             let savedTotalSecs = 0;
             let savedOnDuty = false;
-            let savedDutyStart = null;
             if (doc.exists && doc.data().rootCommanderProfile) {
                 savedRank = doc.data().rootCommanderProfile.rank || 'فريق أول';
                 savedCode = doc.data().rootCommanderProfile.codeNumber || 40;
                 savedTotalSecs = doc.data().rootCommanderProfile.totalSeconds || 0;
                 savedOnDuty = doc.data().rootCommanderProfile.onDuty || false;
-                savedDutyStart = doc.data().rootCommanderProfile.dutyStartTime || null;
             }
             currentUser = {
                 id: 'root_commander',
@@ -241,8 +237,7 @@ window.handleLogin = function(e) {
                 codeNumber: savedCode,
                 adminNote: '',
                 totalSeconds: savedTotalSecs,
-                onDuty: savedOnDuty,
-                dutyStartTime: savedDutyStart
+                onDuty: savedOnDuty
             };
             showAlert('تم تسجيل الدخول كقائد عام');
             refreshAllUI();
@@ -269,7 +264,6 @@ window.handleLogin = function(e) {
 
 window.handleLogout = function() {
     if (currentUser && currentUser.onDuty) {
-        // إنهاء المناوبة تلقائياً وبأمان عند تسجيل الخروج لمنع ضياع أو تضاعف الوقت
         toggleDuty(false);
     }
     currentUser = null;
@@ -406,7 +400,6 @@ function renderDutyPanel() {
     `;
 }
 
-// مؤقت العداد الميداني الفردي الثابت
 setInterval(() => {
     if (currentUser && currentUser.onDuty) {
         currentUser.totalSeconds = (currentUser.totalSeconds || 0) + 1;
@@ -433,11 +426,7 @@ window.toggleDuty = function(start) {
     } else {
         if (!currentUser.onDuty) return;
 
-        // إيقاف العداد فوراً لمنع التضاعف
         currentUser.onDuty = false;
-
-        // إضافة ثانية واحدة عن كل تكرار للمؤقت المحلي لتفادي أي تفاوت زمني
-        currentUser.totalSeconds = (currentUser.totalSeconds || 0);
 
         if (currentUser.id !== 'root_commander') {
             const idx = members.findIndex(m => m.id === currentUser.id);
