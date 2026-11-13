@@ -155,11 +155,14 @@ function hasAnyAdminPerm() {
     return Object.values(currentUser.permissions).some(v => v === true);
 }
 
-function checkAdminPerm(permKey) {
+function checkAdminPerm(permKey, permNameMsg = 'الصلاحية المطلوبة') {
     if (!currentUser) return false;
     if (currentUser.id === 'root_commander') return true;
-    if (!currentUser.permissions) return false;
-    return currentUser.permissions[permKey] === true;
+    if (currentUser.permissions && currentUser.permissions[permKey] === true) {
+        return true;
+    }
+    showAlert(`ليس لديك صلاحية (${permNameMsg})`, true);
+    return false;
 }
 
 window.switchView = function(view) {
@@ -170,7 +173,11 @@ window.switchView = function(view) {
 
     if (view === 'duty') renderDutyPanel();
     else if (view === 'admin') {
-        if (!hasAnyAdminPerm()) { switchView('login'); return; }
+        if (!hasAnyAdminPerm()) { 
+            showAlert('ليس لديك صلاحية الدخول إلى غرفة القيادة والتحكم', true);
+            switchView('home'); 
+            return; 
+        }
         renderAdminPanels();
     } else if (view === 'member-dashboard') {
         if (!currentUser) { switchView('login'); return; }
@@ -180,18 +187,9 @@ window.switchView = function(view) {
 }
 
 window.switchAdminTab = function(tabId, btnEl) {
-    if (tabId === 'tab-logs' && !checkAdminPerm('viewLogs') && currentUser?.id !== 'root_commander') {
-        showAlert('ليس لديك صلاحية معاينة سجل العمليات (Log)', true);
-        return;
-    }
-    if (tabId === 'tab-leaderboard' && !checkAdminPerm('viewLeaderboard') && currentUser?.id !== 'root_commander') {
-        showAlert('ليس لديك صلاحية الاطلاع على صفحة أوقات الجرد وأعلى الساعات', true);
-        return;
-    }
-    if (tabId === 'tab-announcements' && !checkAdminPerm('canAnnounce') && currentUser?.id !== 'root_commander') {
-        showAlert('ليس لديك صلاحية نشر التعاميم والتنبيهات', true);
-        return;
-    }
+    if (tabId === 'tab-logs' && !checkAdminPerm('viewLogs', 'معاينة سجل العمليات')) return;
+    if (tabId === 'tab-leaderboard' && !checkAdminPerm('viewLeaderboard', 'الاطلاع على أوقات الجرد')) return;
+    if (tabId === 'tab-announcements' && !checkAdminPerm('canAnnounce', 'نشر التعاميم والتنبيهات')) return;
 
     document.querySelectorAll('.admin-pane').forEach(p => p.classList.add('hidden'));
     document.querySelectorAll('.admin-tab').forEach(b => {
@@ -292,24 +290,26 @@ function refreshAllUI() {
                 document.getElementById('btn-tab-roles').classList.remove('hidden');
                 document.getElementById('btn-tab-leaderboard').classList.remove('hidden');
                 document.getElementById('btn-tab-announcements').classList.remove('hidden');
+                document.getElementById('btn-tab-permissions-overview')?.classList.remove('hidden');
             } else {
                 document.getElementById('btn-tab-commander-profile').classList.add('hidden');
                 if (currentUser.positionTitle?.includes('نائب')) {
                     document.getElementById('btn-tab-roles').classList.remove('hidden');
                 }
-                if (checkAdminPerm('viewLeaderboard')) {
+                if (currentUser.permissions?.viewLeaderboard) {
                     document.getElementById('btn-tab-leaderboard').classList.remove('hidden');
                 } else {
                     document.getElementById('btn-tab-leaderboard').classList.add('hidden');
                 }
-                if (checkAdminPerm('canAnnounce')) {
+                if (currentUser.permissions?.canAnnounce) {
                     document.getElementById('btn-tab-announcements').classList.remove('hidden');
                 } else {
                     document.getElementById('btn-tab-announcements').classList.add('hidden');
                 }
+                document.getElementById('btn-tab-permissions-overview')?.classList.remove('hidden');
             }
 
-            if (currentUser.id === 'root_commander' || checkAdminPerm('viewLogs')) {
+            if (currentUser.id === 'root_commander' || currentUser.permissions?.viewLogs) {
                 document.getElementById('btn-tab-logs').classList.remove('hidden');
             } else {
                 document.getElementById('btn-tab-logs').classList.add('hidden');
@@ -334,118 +334,6 @@ function refreshAllUI() {
     }
 }
 
-// دالة عرض ملف الفرد الشخصي والتعاميم الخاصة به وت ىفع فيديو الخفارة
-window.renderMemberDashboard = function() {
-    const container = document.getElementById('view-member-dashboard');
-    if (!container || !currentUser) return;
-
-    const myGuards = guardDuties.filter(g => g.memberId === currentUser.id);
-    const myWarnings = currentUser.warnings || [];
-
-    container.innerHTML = `
-        <div class="max-w-4xl mx-auto space-y-6 p-6">
-            <!-- كارت الملف الشخصي -->
-            <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 flex justify-between items-center">
-                <div>
-                    <span class="px-3 py-1 bg-red-600 text-white font-black rounded-xl text-xs inline-block mb-2">سيف ${currentUser.codeNumber}</span>
-                    <h2 class="text-xl font-black text-slate-900">${currentUser.rank} / ${currentUser.name}</h2>
-                    <span class="text-xs text-slate-500">فرد شرطة عسكرية | ديسكورد: ${currentUser.discordId || 'غير مسجل'}</span>
-                </div>
-                <div>
-                    <label class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-md inline-block">
-                        🎥 رفع فيديو الخفارة
-                        <input type="file" accept="video/*" class="hidden" onchange="uploadGuardVideo(event, ${currentUser.id})">
-                    </label>
-                </div>
-            </div>
-
-            <!-- خفارات الفرد الميدانية -->
-            <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-3">
-                <h3 class="font-black text-slate-900 text-sm">أوامر تكليف بخفارة عسكرية</h3>
-                ${myGuards.length === 0 ? '<p class="text-xs text-slate-400">لا توجد خفارات مكلف بها حالياً.</p>' : myGuards.map(g => `
-                    <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex justify-between items-center text-xs">
-                        <div>
-                            <span class="font-black text-slate-900 block">الموقع: ${g.location} (المدة: ${g.durationMins} دقيقة)</span>
-                            <span class="text-slate-500">ملاحظة: ${g.note || 'لا توجد ملاحظات'}</span>
-                            ${g.videoUrl ? `<span class="text-emerald-600 font-bold block mt-1">✓ تم رفع فيديو الإثبات بنجاح</span>` : ''}
-                        </div>
-                        <div>
-                            ${g.videoUrl ? `<button onclick="openVideoModal('${g.videoUrl}')" class="px-3 py-1.5 bg-slate-900 text-white font-bold rounded-xl">معاينة الفيديو المرفوع</button>` : '<span class="text-amber-600 font-bold">بانتظار رفع الفيديو</span>'}
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-
-            <!-- التحذيرات الإدارية -->
-            <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-3">
-                <h3 class="font-black text-slate-900 text-sm">🚨 سجل التحذيرات الإدارية الخاصة بك</h3>
-                ${myWarnings.length === 0 ? '<p class="text-xs text-slate-400">سجل نظيف، لا توجد أي تحذيرات مسجلة.</p>' : myWarnings.map(w => `
-                    <div class="p-3 bg-rose-50 border border-rose-100 rounded-xl text-xs text-rose-800 font-bold flex justify-between">
-                        <span>${w.reason}</span>
-                        <span class="text-rose-400">${w.date}</span>
-                    </div>
-                `).join('')}
-            </div>
-
-            <!-- التعاميم والأوامر العسكرية -->
-            <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-3">
-                <h3 class="font-black text-slate-900 text-sm">📢 التعاميم والأوامر العسكرية الرسمية</h3>
-                ${announcements.length === 0 ? '<p class="text-xs text-slate-400">لا توجد تعاميم حالياً.</p>' : announcements.map(a => `
-                    <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-1 text-xs">
-                        <span class="font-black text-slate-900 text-sm block">${a.title}</span>
-                        <p class="text-slate-700">${a.body}</p>
-                        <span class="text-[10px] text-slate-400 block pt-1">بواسطة: ${a.author} (${a.date})</span>
-                    </div>
-                `).join('')}
-            </div>
-        </div>
-    `;
-}
-
-// رفع فيديو الخفارة وتحويله لتنسيق رابط داخل البيانات
-window.uploadGuardVideo = function(e, memberId) {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = function(uploadEvent) {
-        const videoDataUrl = uploadEvent.target.result;
-        const duty = guardDuties.find(g => g.memberId === memberId && g.status === 'pending');
-        if (duty) {
-            duty.videoUrl = videoDataUrl;
-            duty.status = 'completed';
-        } else if (guardDuties.length > 0) {
-            guardDuties[0].videoUrl = videoDataUrl;
-            guardDuties[0].status = 'completed';
-        }
-        saveSystemData();
-        showAlert('تم رفع فيديو الخفارة بنجاح وإرساله للمسؤولين.');
-        renderMemberDashboard();
-    };
-    reader.readAsDataURL(file);
-}
-
-// فتح نافذة معاينة الفيديو للمسؤولين أو الأفراد دون تحميل
-window.openVideoModal = function(url) {
-    let modal = document.getElementById('video-preview-modal');
-    if (!modal) {
-        modal = document.createElement('div');
-        modal.id = 'video-preview-modal';
-        modal.className = 'fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4';
-        modal.innerHTML = `
-            <div class="bg-white rounded-3xl overflow-hidden max-w-2xl w-full p-4 space-y-3 shadow-2xl">
-                <div class="flex justify-between items-center">
-                    <h3 class="font-black text-sm text-slate-900">معاينة فيديو إثبات الخفارة</h3>
-                    <button onclick="document.getElementById('video-preview-modal').remove()" class="px-3 py-1 bg-slate-100 rounded-xl text-xs font-bold">✕ إغلاق</button>
-                </div>
-                <video id="modal-video-source" controls class="w-full rounded-2xl max-h-[70vh] bg-black"></video>
-            </div>
-        `;
-        document.body.appendChild(modal);
-    }
-    document.getElementById('modal-video-source').src = url;
-}
-
 window.renderPublicRoster = function() {
     const tbody = document.getElementById('public-roster-tbody');
     const search = (document.getElementById('search-roster')?.value || '').toLowerCase();
@@ -463,7 +351,23 @@ window.renderPublicRoster = function() {
         });
     } else {
         const rc = allApproved.find(m => m.id === 'root_commander');
-        if (rc) rc.codeNumber = 1;
+        if (rc) {
+            rc.codeNumber = 1;
+            if (currentUser && currentUser.id === 'root_commander') {
+                rc.onDuty = currentUser.onDuty;
+                rc.rank = currentUser.rank;
+            }
+        }
+    }
+
+    // مزامنة حالة الدخول المباشرة للحساب الحالي إذا كان نشطاً في الذاكرة
+    if (currentUser && currentUser.id !== 'root_commander') {
+        const mObj = allApproved.find(m => m.id === currentUser.id);
+        if (mObj) {
+            mObj.onDuty = currentUser.onDuty;
+            mObj.rank = currentUser.rank;
+            mObj.totalSeconds = currentUser.totalSeconds;
+        }
     }
 
     const approved = allApproved.sort((a, b) => a.codeNumber - b.codeNumber);
@@ -471,6 +375,7 @@ window.renderPublicRoster = function() {
     document.getElementById('stat-total-members').innerText = approved.length;
     document.getElementById('stat-on-duty').innerText = approved.filter(m => m.onDuty).length;
 
+    // استخراج أعلى رتبة عسكرية نشطة حالياً في الميدان لتحديث العرض فوراً
     const onlineMembers = approved.filter(m => m.onDuty);
     let highestActiveDisplay = "لا يوجد";
     if (onlineMembers.length > 0) {
@@ -553,6 +458,14 @@ window.toggleDuty = function(start) {
     if (start) {
         if (currentUser.onDuty) return;
         currentUser.onDuty = true;
+        
+        if (currentUser.id !== 'root_commander') {
+            const idx = members.findIndex(m => m.id === currentUser.id);
+            if (idx !== -1) {
+                members[idx].onDuty = true;
+            }
+        }
+
         playAlertSound();
         pushNotification('تسجيل دخول', `سجل ${currentUser.rank} ${currentUser.name} دخولاً للمناوبة.`);
         addAuditLog(`سجل دخول للمناوبة: ${currentUser.rank} ${currentUser.name}`);
@@ -579,6 +492,125 @@ window.toggleDuty = function(start) {
     
     renderDutyPanel();
     renderPublicRoster();
+}
+
+window.renderMemberDashboard = function() {
+    const container = document.getElementById('view-member-dashboard');
+    if (!container || !currentUser) return;
+
+    const myGuards = guardDuties.filter(g => g.memberId === currentUser.id);
+    const myWarnings = currentUser.warnings || [];
+
+    container.innerHTML = `
+        <div class="max-w-4xl mx-auto space-y-6 p-6">
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 flex justify-between items-center">
+                <div>
+                    <span class="px-3 py-1 bg-red-600 text-white font-black rounded-xl text-xs inline-block mb-2">سيف ${currentUser.codeNumber}</span>
+                    <h2 class="text-xl font-black text-slate-900">${currentUser.rank} / ${currentUser.name}</h2>
+                    <span class="text-xs text-slate-500">فرد شرطة عسكرية | ديسكورد: ${currentUser.discordId || 'غير مسجل'}</span>
+                </div>
+                <div>
+                    <label class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-md inline-block">
+                        🎥 رفع فيديو الخفارة
+                        <input type="file" accept="video/*" class="hidden" onchange="uploadGuardVideo(event, ${currentUser.id})">
+                    </label>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-3">
+                <h3 class="font-black text-slate-900 text-sm">أوامر تكليف بخفارة عسكرية</h3>
+                ${myGuards.length === 0 ? '<p class="text-xs text-slate-400">لا توجد خفارات مكلف بها حالياً.</p>' : myGuards.map(g => `
+                    <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex justify-between items-center text-xs">
+                        <div>
+                            <span class="font-black text-slate-900 block">الموقع: ${g.location} (المدة: ${g.durationMins} دقيقة)</span>
+                            <span class="text-slate-500">ملاحظة: ${g.note || 'لا توجد ملاحظات'}</span>
+                            ${g.videoUrl ? `<span class="text-emerald-600 font-bold block mt-1">✓ تم رفع فيديو الإثبات بنجاح</span>` : ''}
+                        </div>
+                        <div>
+                            ${g.videoUrl ? `<button onclick="openVideoModal('${g.videoUrl}')" class="px-3 py-1.5 bg-slate-900 text-white font-bold rounded-xl">معاينة الفيديو المرفوع</button>` : '<span class="text-amber-600 font-bold">بانتظار رفع الفيديو</span>'}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-3">
+                <h3 class="font-black text-slate-900 text-sm">🚨 سجل التحذيرات الإدارية الخاصة بك</h3>
+                ${myWarnings.length === 0 ? '<p class="text-xs text-slate-400">سجل نظيف، لا توجد أي تحذيرات مسجلة.</p>' : myWarnings.map(w => `
+                    <div class="p-3 bg-rose-50 border border-rose-100 rounded-xl text-xs text-rose-800 font-bold flex justify-between">
+                        <span>${w.reason}</span>
+                        <span class="text-rose-400">${w.date}</span>
+                    </div>
+                `).join('')}
+            </div>
+
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-3">
+                <h3 class="font-black text-slate-900 text-sm">📢 التعاميم والأوامر العسكرية الرسمية</h3>
+                ${announcements.length === 0 ? '<p class="text-xs text-slate-400">لا توجد تعاميم حالياً.</p>' : announcements.map(a => `
+                    <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-1 text-xs">
+                        <span class="font-black text-slate-900 text-sm block">${a.title}</span>
+                        <p class="text-slate-700">${a.body}</p>
+                        <span class="text-[10px] text-slate-400 block pt-1">بواسطة: ${a.author} (${a.date})</span>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+}
+
+window.uploadGuardVideo = function(e, memberId) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(uploadEvent) {
+        const videoDataUrl = uploadEvent.target.result;
+        const duty = guardDuties.find(g => g.memberId === memberId && g.status === 'pending');
+        if (duty) {
+            duty.videoUrl = videoDataUrl;
+            duty.status = 'completed';
+        } else if (guardDuties.length > 0) {
+            guardDuties[0].videoUrl = videoDataUrl;
+            guardDuties[0].status = 'completed';
+        } else {
+            guardDuties.unshift({
+                id: Date.now(),
+                memberId: currentUser.id,
+                memberName: currentUser.name,
+                memberCode: currentUser.codeNumber,
+                location: 'خفارة ذاتية / عامة',
+                durationMins: 60,
+                note: 'رفع فيديو حر',
+                issuerName: currentUser.name,
+                issuerRank: currentUser.rank,
+                videoUrl: videoDataUrl,
+                status: 'completed'
+            });
+        }
+        saveSystemData();
+        showAlert('تم رفع فيديو الخفارة بنجاح وإرساله للمسؤولين.');
+        renderMemberDashboard();
+    };
+    reader.readAsDataURL(file);
+}
+
+window.openVideoModal = function(url) {
+    let modal = document.getElementById('video-preview-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'video-preview-modal';
+        modal.className = 'fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4';
+        modal.innerHTML = `
+            <div class="bg-white rounded-3xl overflow-hidden max-w-2xl w-full p-4 space-y-3 shadow-2xl">
+                <div class="flex justify-between items-center">
+                    <h3 class="font-black text-sm text-slate-900">معاينة فيديو إثبات الخفارة</h3>
+                    <button onclick="document.getElementById('video-preview-modal').remove()" class="px-3 py-1 bg-slate-100 rounded-xl text-xs font-bold">✕ إغلاق</button>
+                </div>
+                <video id="modal-video-source" controls class="w-full rounded-2xl max-h-[70vh] bg-black"></video>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    document.getElementById('modal-video-source').src = url;
 }
 
 window.handleUpdateCommanderProfile = function(e) {
@@ -700,10 +732,31 @@ function renderAdminPanels() {
         `).join('');
     }
 
+    const permsOverviewContainer = document.getElementById('admin-permissions-overview-container');
+    if (permsOverviewContainer) {
+        const leaders = members.filter(m => m.permissions && Object.keys(m.permissions).length > 0);
+        permsOverviewContainer.innerHTML = leaders.length === 0 ? `<p class="text-xs text-slate-400">لا يوجد مسؤولون بصلاحيات مخصصة حالياً.</p>` : leaders.map(l => `
+            <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2 text-xs">
+                <div class="flex justify-between items-center">
+                    <span class="font-black text-slate-900 text-sm">${l.rank} / ${l.name} (سيف ${l.codeNumber})</span>
+                    <span class="px-2 py-1 bg-red-50 text-red-600 rounded font-bold">${l.positionTitle}</span>
+                </div>
+                <div class="flex flex-wrap gap-1 pt-1">
+                    ${Object.entries(l.permissions).map(([k, v]) => `
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold ${v ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-200 text-slate-500'}">
+                            ${k}: ${v ? 'مفعلة ✓' : 'مغلقة ✕'}
+                        </span>
+                    `).join('')}
+                </div>
+            </div>
+        `).join('');
+    }
+
     renderGuardDuties();
 }
 
 window.editAdminNote = function(id) {
+    if (!checkAdminPerm('manageNotes', 'تعديل الملاحظات السرية')) return;
     const m = members.find(x => x.id === id);
     if (!m) return;
     const note = prompt(`أدخل الملاحظة السرية الخاصة بالفرد (${m.name}):`, m.adminNote || '');
@@ -714,6 +767,7 @@ window.editAdminNote = function(id) {
 }
 
 window.editMemberDetails = function(id) {
+    if (!checkAdminPerm('editName', 'تعديل أسماء وأكواد الأفراد')) return;
     const m = members.find(x => x.id === id);
     const newName = prompt(`تعديل اسم الفرد (${m.name}):`, m.name);
     if (newName === null) return;
@@ -739,6 +793,7 @@ window.editMemberDetails = function(id) {
 }
 
 window.openCredentialsModal = function(id) {
+    if (!checkAdminPerm('editCredentials', 'تعديل بيانات الدخول (يوزر وباسورد)')) return;
     const m = members.find(x => x.id === id);
     if (!m) return;
     const newUsername = prompt(`تعديل اسم المستخدم (اليوزر) للفرد (${m.name}):`, m.username || '');
@@ -761,6 +816,8 @@ window.openCredentialsModal = function(id) {
 
 window.handleAdminCreateMember = function(e) {
     e.preventDefault();
+    if (!checkAdminPerm('addMember', 'إضافة أفراد جدد للنظام')) return;
+
     const name = document.getElementById('add-m-name').value.trim();
     const rank = document.getElementById('add-m-rank').value;
     const codeMode = document.getElementById('add-m-code-mode').value;
@@ -807,6 +864,7 @@ window.handleAdminCreateMember = function(e) {
 }
 
 window.editMemberRank = function(id) {
+    if (!checkAdminPerm('editRank', 'تعديل رتب الأفراد')) return;
     const m = members.find(x => x.id === id);
     const newRankInput = prompt(`اختر الرتبة الجديدة للفرد (${m.name}):\n(${MILITARY_RANKS.join(', ')})`, m.rank);
     if (!newRankInput || !MILITARY_RANKS.includes(newRankInput.trim())) return;
@@ -818,6 +876,7 @@ window.editMemberRank = function(id) {
 }
 
 window.warnMember = function(id) {
+    if (!checkAdminPerm('warnMember', 'إرسال تحذيرات عسكرية للأفراد')) return;
     const m = members.find(x => x.id === id);
     const reason = prompt(`أدخل سبب التحذير للفرد ${m.name}:`);
     if (reason && reason.trim()) {
@@ -830,6 +889,7 @@ window.warnMember = function(id) {
 }
 
 window.deleteWarning = function(memberId, warnIdx) {
+    if (!checkAdminPerm('warnMember', 'إدارة وحذف التحذيرات')) return;
     const m = members.find(x => x.id === memberId);
     if (!m) return;
     if (confirm('هل أنت متأكد من حذف هذا التحذير؟')) {
@@ -845,6 +905,7 @@ window.deleteWarning = function(memberId, warnIdx) {
 }
 
 window.dismissMember = function(id) {
+    if (!checkAdminPerm('dismissMember', 'فصل الأفراد نهائياً')) return;
     const m = members.find(x => x.id === id);
     if (confirm(`هل أنت متأكد من فصل ${m.name} نهائياً؟`)) {
         dismissedMembers.push({ ...m, dismissDate: new Date().toLocaleDateString('ar-SA') });
@@ -856,6 +917,8 @@ window.dismissMember = function(id) {
 
 window.handlePostAnnouncement = function(e) {
     e.preventDefault();
+    if (!checkAdminPerm('canAnnounce', 'نشر التعاميم والتنبيهات العسكرية')) return;
+
     const title = document.getElementById('ann-title').value.trim();
     const body = document.getElementById('ann-body').value.trim();
     
@@ -882,6 +945,7 @@ window.handlePostAnnouncement = function(e) {
 }
 
 window.deleteAnnouncement = function(idx) {
+    if (!checkAdminPerm('canAnnounce', 'حذف التعاميم العسكرية')) return;
     if (confirm('هل أنت متأكد من حذف هذا التعميم؟')) {
         announcements.splice(idx, 1);
         saveSystemData();
@@ -892,6 +956,8 @@ window.deleteAnnouncement = function(idx) {
 
 window.handleAssignGuardDuty = function(e) {
     e.preventDefault();
+    if (!checkAdminPerm('manageGuards', 'تكليف الأفراد بأوامر خفارة')) return;
+
     const memberId = parseInt(document.getElementById('guard-member-select').value);
     const location = document.getElementById('guard-location').value.trim();
     const durationMins = parseInt(document.getElementById('guard-duration-mins').value);
@@ -947,6 +1013,7 @@ function renderGuardDuties() {
 }
 
 window.deleteGuard = function(id) {
+    if (!checkAdminPerm('manageGuards', 'حذف أو إلغاء أوامر الخفارة')) return;
     guardDuties = guardDuties.filter(g => g.id !== id);
     saveSystemData();
     refreshAllUI();
@@ -954,6 +1021,11 @@ window.deleteGuard = function(id) {
 
 window.handleCommanderCreateLeader = function(e) {
     e.preventDefault();
+    if (currentUser && currentUser.id !== 'root_commander' && !currentUser.positionTitle?.includes('نائب')) {
+        showAlert('ليس لديك صلاحية تعيين المسؤولين أو منح الصلاحيات', true);
+        return;
+    }
+
     const positionTitle = document.getElementById('lead-role-type').value;
     const name = document.getElementById('lead-name').value.trim();
     const rank = document.getElementById('lead-rank').value;
