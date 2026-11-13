@@ -115,7 +115,6 @@ function saveSystemData() {
     }).catch(err => console.error(err));
 }
 
-// تعديل بداية التوليد التلقائي للأكواد للأفراد لتكون من 40 فصاعداً
 function getNextSwordCode() {
     const approved = members.filter(m => m.codeNumber);
     let nextNum = 40; 
@@ -577,12 +576,12 @@ window.editMemberDetails = function(id) {
     const m = members.find(x => x.id === id);
     const newName = prompt(`تعديل اسم الفرد (${m.name}):`, m.name);
     if (newName === null) return;
-    const newCodeInput = prompt(`تعديل رقم كود السيف للفرد (${m.name}) [بين 2 و 1000]:`, m.codeNumber);
+    const newCodeInput = prompt(`تعديل رقم كود السيف للفرد (${m.name}) [بين 40 و 1000]:`, m.codeNumber);
     if (newCodeInput === null) return;
 
     const newCode = parseInt(newCodeInput);
-    if (isNaN(newCode) || newCode < 2 || newCode > 1000) {
-        showAlert('يرجى إدخال رقم كود صحيح بين 2 و 1000 (سيف 1 محصور للقائد العام).', true);
+    if (isNaN(newCode) || newCode < 40 || newCode > 1000) {
+        showAlert('يرجى إدخال رقم كود صحيح بين 40 و 1000 (سيف 1 محصور للقائد العام).', true);
         return;
     }
 
@@ -632,8 +631,8 @@ window.handleAdminCreateMember = function(e) {
 
     let finalCode = getNextSwordCode();
     if (codeMode === 'custom') {
-        if (isNaN(customCode) || customCode < 2 || customCode > 1000) {
-            showAlert('يرجى إدخال رقم كود صحيح بين 2 و 1000 (سيف 1 مخصص للقائد العام).', true);
+        if (isNaN(customCode) || customCode < 40 || customCode > 1000) {
+            showAlert('يرجى إدخال رقم كود صحيح بين 40 و 1000 (سيف 1 مخصص للقائد العام).', true);
             return;
         }
         if (customCode === 1 || members.some(m => m.codeNumber === customCode)) {
@@ -653,7 +652,7 @@ window.handleAdminCreateMember = function(e) {
         username,
         password,
         positionTitle: 'فرد شرطة عسكرية',
-        permissions: {}, // تبدأ فارغة تماماً ولا تفعل شيئاً إلا بالصلاحيات المعطاة
+        permissions: {},
         totalSeconds: 0,
         onDuty: false,
         adminNote: '',
@@ -786,8 +785,8 @@ window.handleCommanderCreateLeader = function(e) {
     const username = document.getElementById('lead-username').value.trim();
     const password = document.getElementById('lead-password').value.trim();
 
-    if (manualCode < 2 || manualCode > 1000) {
-        showAlert('يجب أن يكون الكود بين 2 و 1000 (سيف 1 مخصص حصرياً للقائد العام).', true);
+    if (manualCode < 40 || manualCode > 1000) {
+        showAlert('يجب أن يكون الكود بين 40 و 1000 (سيف 1 مخصص حصرياً للقائد العام).', true);
         return;
     }
 
@@ -801,11 +800,11 @@ window.handleCommanderCreateLeader = function(e) {
         editName: document.getElementById('perm-edit-name')?.checked || false,
         editRank: document.getElementById('perm-edit-rank')?.checked || false,
         dismissMember: document.getElementById('perm-dismiss')?.checked || false,
-        warnMember: document.getElementById('perm-warn']')?.checked || false,
+        warnMember: document.getElementById('perm-warn')?.checked || false,
         manageGuards: document.getElementById('perm-guards')?.checked || false,
-        manageNotes: document.getElementById('perm-notes']')?.checked || false,
+        manageNotes: document.getElementById('perm-notes')?.checked || false,
         canAnnounce: document.getElementById('perm-announce')?.checked || false,
-        editCredentials: document.getElementById('perm-credentials']')?.checked || false,
+        editCredentials: document.getElementById('perm-credentials')?.checked || false,
         viewLogs: document.getElementById('perm-logs')?.checked || false,
         viewLeaderboard: document.getElementById('perm-view-leaderboard')?.checked || false
     };
