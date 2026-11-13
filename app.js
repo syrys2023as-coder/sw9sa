@@ -115,9 +115,10 @@ function saveSystemData() {
     }).catch(err => console.error(err));
 }
 
+// تعديل بداية التوليد التلقائي للأكواد للأفراد لتكون من 40 فصاعداً
 function getNextSwordCode() {
     const approved = members.filter(m => m.codeNumber);
-    let nextNum = 2;
+    let nextNum = 40; 
     while (approved.some(m => m.codeNumber === nextNum) && nextNum <= 1000) {
         nextNum++;
     }
@@ -622,7 +623,7 @@ window.handleAdminCreateMember = function(e) {
     e.preventDefault();
     const name = document.getElementById('add-m-name').value.trim();
     const rank = document.getElementById('add-m-rank').value;
-    const sector = document.getElementById('add-m-sector').value.trim(); // استعادة حقل القطاع الحالي
+    const sector = document.getElementById('add-m-sector').value.trim();
     const codeMode = document.getElementById('add-m-code-mode').value;
     const customCode = parseInt(document.getElementById('add-m-code-num').value);
     const discordId = document.getElementById('add-m-discord').value.trim();
@@ -646,13 +647,13 @@ window.handleAdminCreateMember = function(e) {
         id: Date.now(),
         name,
         rank,
-        sector, // تخزين القطاع الحالي
+        sector,
         codeNumber: finalCode,
         discordId,
         username,
         password,
         positionTitle: 'فرد شرطة عسكرية',
-        permissions: {}, // تبدأ الصلاحيات فارغة تماماً لكي لا يفعل شيئاً إلا بالصلاحيات المعطاة
+        permissions: {}, // تبدأ فارغة تماماً ولا تفعل شيئاً إلا بالصلاحيات المعطاة
         totalSeconds: 0,
         onDuty: false,
         adminNote: '',
@@ -795,7 +796,6 @@ window.handleCommanderCreateLeader = function(e) {
         return;
     }
 
-    // جميع الصلاحيات تبدأ كـ false افتراضياً، ولا تمنح إلا ما يختاره القائد
     const permissions = {
         addMember: document.getElementById('perm-add-member')?.checked || false,
         editName: document.getElementById('perm-edit-name')?.checked || false,
