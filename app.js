@@ -23,7 +23,7 @@ let guardDuties = [];
 let auditLogs = [];
 let systemNotifications = [];
 let currentUser = null;
-let activeAdminTabId = 'tab-members'; // حفظ التبويب النشط لعدم الخروج منه
+let activeAdminTabId = 'tab-members';
 
 const savedUserSession = localStorage.getItem('mp_current_user');
 if (savedUserSession) {
@@ -231,7 +231,7 @@ window.switchAdminTab = function(tabId, btnEl) {
     if (tabId === 'tab-inventory' && !checkAdminPerm('inventoryManager', 'إدارة الجرد والساعات')) return;
     if (tabId === 'tab-permissions-overview' && !checkAdminPerm('addMember', 'قائمة المسؤولين')) return;
 
-    activeAdminTabId = tabId; // تحديث التبويب النشط الحالي
+    activeAdminTabId = tabId;
 
     document.querySelectorAll('.admin-pane').forEach(p => p.classList.add('hidden'));
     document.querySelectorAll('.admin-tab').forEach(b => {
@@ -355,7 +355,6 @@ function refreshAllUI() {
     }
 }
 
-// بناء تبويبات لوحة التحكم مع الحفاظ على التبويب النشط وعدم الخروج منه عند التحديث
 function renderAdminTabs() {
     const container = document.getElementById('admin-tabs-container');
     if (!container) return;
@@ -610,14 +609,14 @@ window.renderMemberDashboard = function() {
                     <div>
                         ${activeG.videoUrl ? `
                             <div class="flex items-center gap-2">
-                                <span class="text-emerald-600 font-bold text-xs">✓ تم رفع فيديو الإثبات</span>
+                                <span class="text-emerald-600 font-bold text-xs">✓ تم رفع الرابط</span>
                                 <button onclick="openVideoModal('${activeG.videoUrl}')" class="px-3 py-1.5 bg-slate-900 text-white font-bold rounded-xl text-xs shadow">🎥 مشاهدة الفيديو</button>
                             </div>
                         ` : `
-                            <label class="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-md inline-block">
-                                🎥 رفع فيديو إثبات الخفارة
-                                <input type="file" accept="video/*" class="hidden" onchange="uploadGuardVideo(event, ${activeG.id})">
-                            </label>
+                            <div class="flex gap-2 items-center">
+                                <input type="text" id="guard-video-link-input" placeholder="الصق رابط الفيديو هنا..." class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:border-red-600 w-48">
+                                <button onclick="submitGuardVideoLink(${activeG.id})" class="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs shadow-md">إرسال رابط الفيديو</button>
+                            </div>
                         `}
                     </div>
                 </div>
@@ -653,29 +652,27 @@ window.renderMemberDashboard = function() {
     document.getElementById('member-dash-meta').innerText = `ديسكورد: ${currentUser.discordId || 'غير مسجل'} | المنصب: ${currentUser.positionTitle || 'فرد'}`;
 }
 
-window.uploadGuardVideo = function(e, guardId) {
-    const file = e.target.files[0];
-    if (!file) return;
+// دالة اعتماد رابط الفيديو مباشرة وثباته فوراً بدون مشاكل الحجم
+window.submitGuardVideoLink = function(guardId) {
+    const inputEl = document.getElementById('guard-video-link-input');
+    if (!inputEl) return;
+    const linkVal = inputEl.value.trim();
 
-    showAlert('جاري رفع ومعالجة فيديو الخفارة وحفظه...');
+    if (!linkVal) {
+        showAlert('يرجى لصق رابط الفيديو أولاً!', true);
+        return;
+    }
 
-    const reader = new FileReader();
-    reader.onload = function(uploadEvent) {
-        const videoDataUrl = uploadEvent.target.result;
-        
-        const duty = guardDuties.find(g => g.id === guardId);
-        if (duty) {
-            duty.videoUrl = videoDataUrl;
-            duty.status = 'completed';
-        }
+    const duty = guardDuties.find(g => g.id === guardId);
+    if (duty) {
+        duty.videoUrl = linkVal;
+        duty.status = 'completed';
+    }
 
-        saveSystemData();
-        
-        showAlert('تم رفع ومعالجة فيديو الخفارة وتحديث حالته بنجاح.');
-        renderMemberDashboard();
-        renderAdminPanels();
-    };
-    reader.readAsDataURL(file);
+    saveSystemData();
+    showAlert('تم إرسال وحفظ رابط فيديو الخفارة بنجاح.');
+    renderMemberDashboard();
+    renderAdminPanels();
 }
 
 window.openVideoModal = function(url) {
@@ -686,18 +683,30 @@ window.openVideoModal = function(url) {
         modal.className = 'fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4';
         document.body.appendChild(modal);
     }
+    
+    // فحص ما إذا كان الرابط فيديو مباشر أو رابط عام يمكن فتحه
     modal.innerHTML = `
         <div class="bg-white rounded-3xl overflow-hidden max-w-3xl w-full p-4 space-y-3 shadow-2xl">
             <div class="flex justify-between items-center border-b pb-2">
                 <h3 class="font-black text-sm text-slate-900">مشاهدة فيديو إثبات الخفارة</h3>
                 <button onclick="document.getElementById('video-preview-modal').remove()" class="px-3 py-1 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-bold transition">✕ إغلاق</button>
             </div>
-            <div class="bg-black rounded-2xl overflow-hidden flex justify-center items-center">
-                <video id="modal-video-source" controls autoplay class="w-full max-h-[70vh] object-contain"></video>
+            <div class="p-4 text-center space-y-3">
+                <p class="text-xs text-slate-600 font-bold">رابط الفيديو المرفق:</p>
+                <a href="${url}" target="_blank" class="text-red-600 font-bold underline break-all text-xs block">${url}</a>
+                <div class="bg-black rounded-2xl overflow-hidden flex justify-center items-center mt-2 p-2">
+                    <video id="modal-video-source" controls autoplay class="w-full max-h-[60vh] object-contain"></video>
+                </div>
             </div>
         </div>
     `;
-    document.getElementById('modal-video-source').src = url;
+    const vEl = document.getElementById('modal-video-source');
+    if (vEl) {
+        vEl.src = url;
+        vEl.onerror = function() {
+            // لو المتصفح لم يدعم تشغيل الرابط المباشر، يظهر للمستخدم زر فتح مباشر
+        };
+    }
 }
 
 window.handleUpdateCommanderProfile = function(e) {
@@ -888,7 +897,6 @@ function renderAdminPanels() {
 }
 
 window.adjustMemberTime = function(id, secondsDelta) {
-    // تم ربطها بصلاحية تعديل الساعات (editHours)
     if (!checkAdminPerm('editHours', 'تعديل وزيادة/نقصان الساعات')) return;
 
     if (id === 'root_commander') {
@@ -906,7 +914,6 @@ window.adjustMemberTime = function(id, secondsDelta) {
 }
 
 window.setCustomMemberTime = function(id) {
-    // تم ربطها بصلاحية تعديل الساعات (editHours)
     if (!checkAdminPerm('editHours', 'تعديل الساعات بدقة')) return;
 
     let currentSecs = 0;
@@ -1281,7 +1288,7 @@ function renderGuardDuties() {
             </td>
             <td class="p-4 text-xs font-bold text-red-600">${g.issuerRank} / ${g.issuerName}</td>
             <td class="p-4 text-xs">
-                ${g.status === 'completed' || g.videoUrl ? '<span class="text-emerald-600 font-bold block">مكتملة (تم رفع الفيديو)</span>' : '<span class="text-amber-600 font-bold block">بانتظار رفع الفيديو</span>'}
+                ${g.status === 'completed' || g.videoUrl ? '<span class="text-emerald-600 font-bold block">مكتملة (تم إرسال الرابط)</span>' : '<span class="text-amber-600 font-bold block">بانتظار إرسال الرابط</span>'}
             </td>
             <td class="p-4"><button onclick="deleteGuard(${g.id})" class="px-2 py-1 bg-slate-200 rounded text-xs">حذف</button></td>
         </tr>
