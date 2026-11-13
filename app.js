@@ -94,7 +94,7 @@ db.collection("military_police").doc("system_data").onSnapshot((doc) => {
                     currentUser.totalSeconds = data.rootCommanderProfile.totalSeconds || currentUser.totalSeconds;
                 }
             } else {
-                const fresh = members.find(m => m.id === currentUser.id);
+                const fresh = members.find(m => String(m.id) === String(currentUser.id));
                 if (fresh) {
                     currentUser.rank = fresh.rank;
                     currentUser.codeNumber = fresh.codeNumber;
@@ -449,7 +449,7 @@ window.renderPublicRoster = function() {
     }
 
     if (currentUser && currentUser.id !== 'root_commander') {
-        const mObj = allApproved.find(m => m.id === currentUser.id);
+        const mObj = allApproved.find(m => String(m.id) === String(currentUser.id));
         if (mObj) {
             mObj.onDuty = currentUser.onDuty;
             mObj.rank = currentUser.rank;
@@ -534,7 +534,7 @@ setInterval(() => {
         currentUser.totalSeconds = (currentUser.totalSeconds || 0) + 1;
         
         if (currentUser.id !== 'root_commander') {
-            const mObj = members.find(m => m.id === currentUser.id);
+            const mObj = members.find(m => String(m.id) === String(currentUser.id));
             if (mObj) mObj.totalSeconds = currentUser.totalSeconds;
         }
         localStorage.setItem('mp_current_user', JSON.stringify(currentUser));
@@ -554,7 +554,7 @@ window.toggleDuty = function(start) {
         currentUser.onDuty = true;
         
         if (currentUser.id !== 'root_commander') {
-            const idx = members.findIndex(m => m.id === currentUser.id);
+            const idx = members.findIndex(m => String(m.id) === String(currentUser.id));
             if (idx !== -1) members[idx].onDuty = true;
         }
 
@@ -568,7 +568,7 @@ window.toggleDuty = function(start) {
         currentUser.onDuty = false;
 
         if (currentUser.id !== 'root_commander') {
-            const idx = members.findIndex(m => m.id === currentUser.id);
+            const idx = members.findIndex(m => String(m.id) === String(currentUser.id));
             if (idx !== -1) {
                 members[idx].totalSeconds = currentUser.totalSeconds;
                 members[idx].onDuty = false;
@@ -591,7 +591,7 @@ window.renderMemberDashboard = function() {
     const container = document.getElementById('view-member-dashboard');
     if (!container || !currentUser) return;
 
-    const myGuards = guardDuties.filter(g => g.memberId === currentUser.id);
+    const myGuards = guardDuties.filter(g => String(g.memberId) === String(currentUser.id));
     const myWarnings = currentUser.warnings || [];
 
     const guardBox = document.getElementById('member-guard-duty-box');
@@ -609,14 +609,14 @@ window.renderMemberDashboard = function() {
                     <div>
                         ${activeG.videoUrl ? `
                             <div class="flex items-center gap-2">
-                                <span class="text-emerald-600 font-bold text-xs">✓ تم رفع الرابط</span>
+                                <span class="text-emerald-600 font-bold text-xs">✓ تم رفع فيديو الإثبات</span>
                                 <button onclick="openVideoModal('${activeG.videoUrl}')" class="px-3 py-1.5 bg-slate-900 text-white font-bold rounded-xl text-xs shadow">🎥 مشاهدة الفيديو</button>
                             </div>
                         ` : `
-                            <div class="flex gap-2 items-center">
-                                <input type="text" id="guard-video-link-input" placeholder="الصق رابط الفيديو هنا..." class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:border-red-600 w-48">
-                                <button onclick="submitGuardVideoLink(${activeG.id})" class="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs shadow-md">إرسال رابط الفيديو</button>
-                            </div>
+                            <label class="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-md inline-block">
+                                🎥 رفع فيديو إثبات الخفارة
+                                <input type="file" accept="video/*" class="hidden" onchange="uploadGuardVideo(event, '${activeG.id}')">
+                            </label>
                         `}
                     </div>
                 </div>
@@ -652,27 +652,29 @@ window.renderMemberDashboard = function() {
     document.getElementById('member-dash-meta').innerText = `ديسكورد: ${currentUser.discordId || 'غير مسجل'} | المنصب: ${currentUser.positionTitle || 'فرد'}`;
 }
 
-// دالة اعتماد رابط الفيديو مباشرة وثباته فوراً بدون مشاكل الحجم
-window.submitGuardVideoLink = function(guardId) {
-    const inputEl = document.getElementById('guard-video-link-input');
-    if (!inputEl) return;
-    const linkVal = inputEl.value.trim();
+window.uploadGuardVideo = function(e, guardId) {
+    const file = e.target.files[0];
+    if (!file) return;
 
-    if (!linkVal) {
-        showAlert('يرجى لصق رابط الفيديو أولاً!', true);
-        return;
-    }
+    showAlert('جاري رفع ومعالجة فيديو الخفارة وحفظه...');
 
-    const duty = guardDuties.find(g => g.id === guardId);
-    if (duty) {
-        duty.videoUrl = linkVal;
-        duty.status = 'completed';
-    }
+    const reader = new FileReader();
+    reader.onload = function(uploadEvent) {
+        const videoDataUrl = uploadEvent.target.result;
+        
+        const duty = guardDuties.find(g => String(g.id) === String(guardId));
+        if (duty) {
+            duty.videoUrl = videoDataUrl;
+            duty.status = 'completed';
+        }
 
-    saveSystemData();
-    showAlert('تم إرسال وحفظ رابط فيديو الخفارة بنجاح.');
-    renderMemberDashboard();
-    renderAdminPanels();
+        saveSystemData();
+        
+        showAlert('تم رفع ومعالجة فيديو الخفارة وتحديث حالته بنجاح.');
+        renderMemberDashboard();
+        renderAdminPanels();
+    };
+    reader.readAsDataURL(file);
 }
 
 window.openVideoModal = function(url) {
@@ -683,30 +685,19 @@ window.openVideoModal = function(url) {
         modal.className = 'fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4';
         document.body.appendChild(modal);
     }
-    
-    // فحص ما إذا كان الرابط فيديو مباشر أو رابط عام يمكن فتحه
     modal.innerHTML = `
         <div class="bg-white rounded-3xl overflow-hidden max-w-3xl w-full p-4 space-y-3 shadow-2xl">
             <div class="flex justify-between items-center border-b pb-2">
                 <h3 class="font-black text-sm text-slate-900">مشاهدة فيديو إثبات الخفارة</h3>
                 <button onclick="document.getElementById('video-preview-modal').remove()" class="px-3 py-1 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-bold transition">✕ إغلاق</button>
             </div>
-            <div class="p-4 text-center space-y-3">
-                <p class="text-xs text-slate-600 font-bold">رابط الفيديو المرفق:</p>
-                <a href="${url}" target="_blank" class="text-red-600 font-bold underline break-all text-xs block">${url}</a>
-                <div class="bg-black rounded-2xl overflow-hidden flex justify-center items-center mt-2 p-2">
-                    <video id="modal-video-source" controls autoplay class="w-full max-h-[60vh] object-contain"></video>
-                </div>
+            <div class="bg-black rounded-2xl overflow-hidden flex justify-center items-center">
+                <video id="modal-video-source" controls autoplay class="w-full max-h-[70vh] object-contain"></video>
             </div>
         </div>
     `;
-    const vEl = document.getElementById('modal-video-source');
-    if (vEl) {
-        vEl.src = url;
-        vEl.onerror = function() {
-            // لو المتصفح لم يدعم تشغيل الرابط المباشر، يظهر للمستخدم زر فتح مباشر
-        };
-    }
+    const vSource = document.getElementById('modal-video-source');
+    if (vSource) vSource.src = url;
 }
 
 window.handleUpdateCommanderProfile = function(e) {
@@ -903,7 +894,7 @@ window.adjustMemberTime = function(id, secondsDelta) {
         currentUser.totalSeconds = Math.max(0, (currentUser.totalSeconds || 0) + secondsDelta);
         localStorage.setItem('mp_current_user', JSON.stringify(currentUser));
     } else {
-        const m = members.find(x => x.id === id);
+        const m = members.find(x => String(x.id) === String(id));
         if (m) {
             m.totalSeconds = Math.max(0, (m.totalSeconds || 0) + secondsDelta);
         }
@@ -922,7 +913,7 @@ window.setCustomMemberTime = function(id) {
         currentSecs = currentUser.totalSeconds || 0;
         targetName = 'القائد العام';
     } else {
-        const m = members.find(x => x.id === id);
+        const m = members.find(x => String(x.id) === String(id));
         if (!m) return;
         currentSecs = m.totalSeconds || 0;
         targetName = m.name;
@@ -941,7 +932,7 @@ window.setCustomMemberTime = function(id) {
             currentUser.totalSeconds = newTotalSecs;
             localStorage.setItem('mp_current_user', JSON.stringify(currentUser));
         } else {
-            const m = members.find(x => x.id === id);
+            const m = members.find(x => String(x.id) === String(id));
             if (m) m.totalSeconds = newTotalSecs;
         }
         saveSystemData();
@@ -965,7 +956,7 @@ window.openEditLeaderPermissionsModal = function(id) {
         showAlert('ليس لديك صلاحية تعديل صلاحيات المسؤولين', true);
         return;
     }
-    const l = members.find(x => x.id === id);
+    const l = members.find(x => String(x.id) === String(id));
     if (!l) return;
     const p = l.permissions || {};
 
@@ -997,13 +988,13 @@ window.openEditLeaderPermissionsModal = function(id) {
                 <label class="flex items-center gap-2 p-2 bg-slate-50 rounded-xl cursor-pointer"><input type="checkbox" id="edit-perm-credentials" ${p.editCredentials ? 'checked' : ''}> اليوزر والباسورد</label>
                 <label class="flex items-center gap-2 p-2 bg-slate-50 rounded-xl cursor-pointer"><input type="checkbox" id="edit-perm-logs" ${p.viewLogs ? 'checked' : ''}> سجل العمليات</label>
             </div>
-            <button onclick="saveLeaderPermissions(${l.id})" class="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-md">حفظ التعديلات</button>
+            <button onclick="saveLeaderPermissions('${l.id}')" class="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-md">حفظ التعديلات</button>
         </div>
     `;
 }
 
 window.saveLeaderPermissions = function(id) {
-    const l = members.find(x => x.id === id);
+    const l = members.find(x => String(x.id) === String(id));
     if (!l) return;
 
     l.permissions = {
@@ -1031,7 +1022,7 @@ window.revokeLeaderRole = function(id) {
         showAlert('ليس لديك صلاحية إزالة المسؤولين', true);
         return;
     }
-    const l = members.find(x => x.id === id);
+    const l = members.find(x => String(x.id) === String(id));
     if (!l) return;
     if (confirm(`هل أنت متأكد من إزالة الصلاحيات القيادية عن (${l.name}) وإعادته كفرد عادي؟`)) {
         l.permissions = {};
@@ -1043,7 +1034,7 @@ window.revokeLeaderRole = function(id) {
 
 window.editAdminNote = function(id) {
     if (!checkAdminPerm('manageNotes', 'تعديل الملاحظات السرية')) return;
-    const m = members.find(x => x.id === id);
+    const m = members.find(x => String(x.id) === String(id));
     if (!m) return;
     showCustomPrompt(`أدخل الملاحظة السرية الخاصة بالفرد (${m.name}):`, m.adminNote || '', (val) => {
         if (val !== null) {
@@ -1056,7 +1047,7 @@ window.editAdminNote = function(id) {
 
 window.editMemberDetails = function(id) {
     if (!checkAdminPerm('editName', 'تعديل أسماء وأكواد الأفراد')) return;
-    const m = members.find(x => x.id === id);
+    const m = members.find(x => String(x.id) === String(id));
     showCustomPrompt(`تعديل اسم الفرد (${m.name}):`, m.name, (newName) => {
         if (newName === null) return;
         showCustomPrompt(`تعديل رقم كود السيف للفرد (${m.name}):`, m.codeNumber, (newCodeInput) => {
@@ -1076,7 +1067,7 @@ window.editMemberDetails = function(id) {
 
 window.openCredentialsModal = function(id) {
     if (!checkAdminPerm('editCredentials', 'تعديل بيانات الدخول (يوزر وباسورد)')) return;
-    const m = members.find(x => x.id === id);
+    const m = members.find(x => String(x.id) === String(id));
     if (!m) return;
     showCustomPrompt(`تعديل اسم المستخدم (اليوزر) للفرد (${m.name}):`, m.username || '', (newUsername) => {
         if (newUsername === null) return;
@@ -1147,7 +1138,7 @@ window.handleAdminCreateMember = function(e) {
 
 window.editMemberRank = function(id) {
     if (!checkAdminPerm('editRank', 'تعديل رتب الأفراد')) return;
-    const m = members.find(x => x.id === id);
+    const m = members.find(x => String(x.id) === String(id));
     const ranksListStr = MILITARY_RANKS.join(', ');
     showCustomPrompt(`اختر الرتبة الجديدة للفرد (${m.name}):\n(${ranksListStr})`, m.rank, (newRankInput) => {
         if (!newRankInput || !MILITARY_RANKS.includes(newRankInput.trim())) return;
@@ -1160,7 +1151,7 @@ window.editMemberRank = function(id) {
 
 window.warnMember = function(id) {
     if (!checkAdminPerm('warnMember', 'إرسال تحذيرات عسكرية للأفراد')) return;
-    const m = members.find(x => x.id === id);
+    const m = members.find(x => String(x.id) === String(id));
     showCustomPrompt(`أدخل سبب التحذير للفرد (${m.name}):`, '', (reason) => {
         if (reason && reason.trim()) {
             if (!m.warnings) m.warnings = [];
@@ -1174,7 +1165,7 @@ window.warnMember = function(id) {
 
 window.deleteWarning = function(memberId, warnIdx) {
     if (!checkAdminPerm('warnMember', 'إدارة وحذف التحذيرات')) return;
-    const m = members.find(x => x.id === memberId);
+    const m = members.find(x => String(x.id) === String(memberId));
     if (!m) return;
     if (confirm('هل أنت متأكد من حذف هذا التحذير؟')) {
         m.warnings.splice(warnIdx, 1);
@@ -1186,10 +1177,10 @@ window.deleteWarning = function(memberId, warnIdx) {
 
 window.dismissMember = function(id) {
     if (!checkAdminPerm('dismissMember', 'فصل الأفراد نهائياً')) return;
-    const m = members.find(x => x.id === id);
+    const m = members.find(x => String(x.id) === String(id));
     if (confirm(`هل أنت متأكد من فصل ${m.name} نهائياً؟`)) {
         dismissedMembers.push({ ...m, dismissDate: new Date().toLocaleDateString('ar-SA') });
-        members = members.filter(x => x.id !== id);
+        members = members.filter(x => String(x.id) !== String(id));
         saveSystemData();
         showAlert('تم فصل الفرد ونقله للأرشيف.');
     }
@@ -1246,7 +1237,7 @@ window.handleAssignGuardDuty = function(e) {
     const durationMins = parseInt(document.getElementById('guard-duration-mins').value);
     const note = document.getElementById('guard-note').value.trim();
 
-    const member = members.find(m => m.id === memberId);
+    const member = members.find(m => String(m.id) === String(memberId));
     if (!member) return;
 
     guardDuties.unshift({
@@ -1288,7 +1279,7 @@ function renderGuardDuties() {
             </td>
             <td class="p-4 text-xs font-bold text-red-600">${g.issuerRank} / ${g.issuerName}</td>
             <td class="p-4 text-xs">
-                ${g.status === 'completed' || g.videoUrl ? '<span class="text-emerald-600 font-bold block">مكتملة (تم إرسال الرابط)</span>' : '<span class="text-amber-600 font-bold block">بانتظار إرسال الرابط</span>'}
+                ${(g.status === 'completed' || (g.videoUrl && g.videoUrl.trim() !== '')) ? '<span class="text-emerald-600 font-bold block">مكتملة (تم رفع الفيديو)</span>' : '<span class="text-amber-600 font-bold block">بانتظار رفع الفيديو</span>'}
             </td>
             <td class="p-4"><button onclick="deleteGuard(${g.id})" class="px-2 py-1 bg-slate-200 rounded text-xs">حذف</button></td>
         </tr>
@@ -1297,7 +1288,7 @@ function renderGuardDuties() {
 
 window.deleteGuard = function(id) {
     if (!checkAdminPerm('manageGuards', 'حذف أو إلغاء أوامر الخفارة')) return;
-    guardDuties = guardDuties.filter(g => g.id !== id);
+    guardDuties = guardDuties.filter(g => String(g.id) !== String(id));
     saveSystemData();
     refreshAllUI();
 }
