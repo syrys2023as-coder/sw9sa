@@ -429,14 +429,20 @@ window.toggleDuty = function(start) {
         addAuditLog(`سجل دخول للمناوبة: ${currentUser.rank} ${currentUser.name}`);
         showAlert('تم تسجيل دخولك للميدان وبدأ عداد الثواني.');
     } else {
+        // حماية تامة لمنع تكرار أو تدبيل حساب الوقت إذا لم يكن في المناوبة أصلاً
         if (!currentUser.onDuty) return;
 
-        const diffMs = Date.now() - (currentUser.dutyStartTime || Date.now());
-        const earnedSecs = Math.max(1, Math.round(diffMs / 1000));
-        
-        currentUser.totalSeconds = (currentUser.totalSeconds || 0) + earnedSecs;
+        // إيقاف حالة المناوبة فوراً لمنع أي عداد متداخل
         currentUser.onDuty = false;
-        currentUser.dutyStartTime = null;
+
+        if (currentUser.dutyStartTime) {
+            const diffMs = Date.now() - currentUser.dutyStartTime;
+            const earnedSecs = Math.max(1, Math.round(diffMs / 1000));
+            
+            // إضافة الثواني المحسوبة فعلياً مرة واحدة فقط وتصفية وقت البداية تماماً
+            currentUser.totalSeconds = (currentUser.totalSeconds || 0) + earnedSecs;
+            currentUser.dutyStartTime = null;
+        }
 
         if (currentUser.id !== 'root_commander') {
             const idx = members.findIndex(m => m.id === currentUser.id);
@@ -631,7 +637,6 @@ window.editMemberDetails = function(id) {
         return;
     }
 
-    // التحقق عما إذا كان الكود مستخدماً من فرد آخر مع إعطاء تنبيه
     const isUsedByOther = members.some(x => x.codeNumber === newCode && x.id !== id) || (currentUser && currentUser.codeNumber === newCode && currentUser.id !== id);
     if (isUsedByOther) {
         showAlert(`⚠️ تنبيه: الكود سيف ${newCode} مستخدم بالفعل لفرد آخر! لم يتم التعديل.`, true);
