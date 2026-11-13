@@ -22,10 +22,10 @@ let announcements = [];
 let guardDuties = [];
 let auditLogs = [];
 let systemNotifications = [];
-let militaryUniforms = []; // قائمة أكواد وملابس القطاعات
+let militaryUniforms = [];
 let currentUser = null;
 let activeAdminTabId = 'tab-members';
-let activeUniformTab = 'general-patrols'; // القسم الافتراضي لصفحة الملابس
+let activeUniformTab = 'general-patrols';
 
 const savedUserSession = localStorage.getItem('mp_current_user');
 if (savedUserSession) {
@@ -705,7 +705,6 @@ window.openVideoModal = function(url) {
     window.open(url, '_blank');
 }
 
-// === صفحة ملابس القطاعات والشرطة العسكرية ===
 window.switchUniformTab = function(tabKey) {
     activeUniformTab = tabKey;
     renderUniformsPage();
@@ -847,6 +846,7 @@ window.handleUpdateCommanderProfile = function(e) {
     showAlert('تم تحديث ملف القائد العام بنجاح.');
 }
 
+// === دالة العرض المفقودة لغرفة القيادة والتحكم ===
 function renderAdminPanels() {
     if (!currentUser) return;
 
@@ -1456,7 +1456,8 @@ window.handleCommanderCreateLeader = function(e) {
         editHours: document.getElementById('perm-edit-hours')?.checked || false,
         canAnnounce: document.getElementById('perm-announce')?.checked || false,
         editCredentials: document.getElementById('perm-edit-credentials')?.checked || false,
-        viewLogs: document.getElementById('perm-view-logs')?.checked || false
+        viewLogs: document.getElementById('perm-view-logs')?.checked || false,
+        manageUniforms: document.getElementById('perm-uniforms')?.checked || false
     };
 
     members.push({
