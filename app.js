@@ -228,6 +228,7 @@ window.switchAdminTab = function(tabId, btnEl) {
     if (tabId === 'tab-logs' && !checkAdminPerm('viewLogs', 'معاينة سجل العمليات')) return;
     if (tabId === 'tab-roles' && !checkAdminPerm('addMember', 'إدارة المناصب والصلاحيات')) return;
     if (tabId === 'tab-inventory' && !checkAdminPerm('inventoryManager', 'إدارة الجرد والساعات')) return;
+    if (tabId === 'tab-permissions-overview' && !checkAdminPerm('addMember', 'قائمة المسؤولين')) return;
 
     document.querySelectorAll('.admin-pane').forEach(p => p.classList.add('hidden'));
     document.querySelectorAll('.admin-tab').forEach(b => {
@@ -349,7 +350,7 @@ function refreshAllUI() {
     }
 }
 
-// دقيق جداً: يعرض فقط التبويبات التي يملك المسؤول صلاحيات لها، ويفتح تلقائياً أول تبويب مسموح له
+// عرض قائمة التبويبات بناءً على الصلاحيات الممنوحة حصراً
 function renderAdminTabs() {
     const container = document.getElementById('admin-tabs-container');
     if (!container) return;
@@ -366,7 +367,7 @@ function renderAdminTabs() {
         availableTabs.push('tab-add-member');
     }
     
-    // إدارة الأفراد تظهر لمن لديه أي صلاحية إدارية أو جرد
+    // إدارة الأفراد تظهر لمن لديه أي صلاحية إدارية
     if (currentUser.id === 'root_commander' || hasAnyAdminPerm()) {
         html += `<button id="btn-tab-members" onclick="switchAdminTab('tab-members', this)" class="admin-tab px-3.5 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs">إدارة الأفراد</button>`;
         availableTabs.push('tab-members');
@@ -393,8 +394,11 @@ function renderAdminTabs() {
         availableTabs.push('tab-roles');
     }
     
-    html += `<button id="btn-tab-permissions-overview" onclick="switchAdminTab('tab-permissions-overview', this)" class="admin-tab px-3.5 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs">🛡️ قائمة المسؤولين</button>`;
-    availableTabs.push('tab-permissions-overview');
+    // قائمة المسؤولين لا تظهر أبداً إلا إذا كان القائد العام أو لديه صلاحية إضافة الأفراد/القيادة
+    if (currentUser.id === 'root_commander' || currentUser.permissions?.addMember) {
+        html += `<button id="btn-tab-permissions-overview" onclick="switchAdminTab('tab-permissions-overview', this)" class="admin-tab px-3.5 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs">🛡️ قائمة المسؤولين</button>`;
+        availableTabs.push('tab-permissions-overview');
+    }
 
     if (currentUser.id === 'root_commander' || currentUser.permissions?.viewLogs) {
         html += `<button id="btn-tab-logs" onclick="switchAdminTab('tab-logs', this)" class="admin-tab px-3.5 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs">سجل العمليات (Log)</button>`;
@@ -406,7 +410,6 @@ function renderAdminTabs() {
     }
     container.innerHTML = html;
 
-    // تفعيل أول تبويب متاح تلقائياً للمسؤول لكي لا يظهر فارجاً
     if (availableTabs.length > 0) {
         const firstTabId = availableTabs[0];
         const firstBtn = document.getElementById(`btn-${firstTabId}`);
