@@ -188,6 +188,10 @@ window.switchAdminTab = function(tabId, btnEl) {
         showAlert('ليس لديك صلاحية الاطلاع على صفحة أوقات الجرد وأعلى الساعات', true);
         return;
     }
+    if (tabId === 'tab-announcements' && !checkAdminPerm('canAnnounce') && currentUser?.id !== 'root_commander') {
+        showAlert('ليس لديك صلاحية نشر التعاميم والتنبيهات', true);
+        return;
+    }
 
     document.querySelectorAll('.admin-pane').forEach(p => p.classList.add('hidden'));
     document.querySelectorAll('.admin-tab').forEach(b => {
@@ -287,6 +291,7 @@ function refreshAllUI() {
                 document.getElementById('btn-tab-commander-profile').classList.remove('hidden');
                 document.getElementById('btn-tab-roles').classList.remove('hidden');
                 document.getElementById('btn-tab-leaderboard').classList.remove('hidden');
+                document.getElementById('btn-tab-announcements').classList.remove('hidden');
             } else {
                 document.getElementById('btn-tab-commander-profile').classList.add('hidden');
                 if (currentUser.positionTitle?.includes('نائب')) {
@@ -296,6 +301,11 @@ function refreshAllUI() {
                     document.getElementById('btn-tab-leaderboard').classList.remove('hidden');
                 } else {
                     document.getElementById('btn-tab-leaderboard').classList.add('hidden');
+                }
+                if (checkAdminPerm('canAnnounce')) {
+                    document.getElementById('btn-tab-announcements').classList.remove('hidden');
+                } else {
+                    document.getElementById('btn-tab-announcements').classList.add('hidden');
                 }
             }
 
@@ -559,6 +569,24 @@ function renderAdminPanels() {
         `).join('');
     }
 
+    // عرض قائمة التعاميم الحالية في لوحة التحكم
+    const annListContainer = document.getElementById('admin-announcements-list');
+    if (annListContainer) {
+        annListContainer.innerHTML = announcements.length === 0 ? `<p class="text-xs text-slate-400">لا توجد تعاميم مسجلة حالياً.</p>` : announcements.map((a, idx) => `
+            <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">
+                <div class="flex justify-between items-center">
+                    <span class="font-black text-slate-900 text-sm">${a.title}</span>
+                    <button onclick="deleteAnnouncement(${idx})" class="px-2 py-1 bg-rose-50 text-rose-600 rounded font-bold">حذف التعميم</button>
+                </div>
+                <p class="text-slate-700 whitespace-pre-wrap">${a.body}</p>
+                <div class="text-[10px] text-slate-400 flex justify-between">
+                    <span>بواسطة: ${a.author}</span>
+                    <span>${a.date}</span>
+                </div>
+            </div>
+        `).join('');
+    }
+
     renderGuardDuties();
 }
 
@@ -712,6 +740,43 @@ window.dismissMember = function(id) {
         members = members.filter(x => x.id !== id);
         saveSystemData();
         showAlert('تم فصل الفرد ونقله للأرشيف.');
+    }
+}
+
+// دالة نشر التعميم أو التنبيه العسكري
+window.handlePostAnnouncement = function(e) {
+    e.preventDefault();
+    const title = document.getElementById('ann-title').value.trim();
+    const body = document.getElementById('ann-body').value.trim();
+    
+    if (!title || !body) {
+        showAlert('يرجى تعبئة عنوان ومحتوى التعميم.', true);
+        return;
+    }
+
+    announcements.unshift({
+        id: Date.now(),
+        title,
+        body,
+        author: currentUser ? `${currentUser.rank || ''} ${currentUser.name}` : 'القيادة العليا',
+        date: new Date().toLocaleDateString('ar-SA')
+    });
+
+    playAlertSound();
+    pushNotification('تعميم عسكري جديد', title);
+    addAuditLog(`أصدر تعميماً عسكرياً بعنوان: ${title}`);
+    saveSystemData();
+    e.target.reset();
+    showAlert('تم نشر التعميم بنجاح.');
+    renderAdminPanels();
+}
+
+window.deleteAnnouncement = function(idx) {
+    if (confirm('هل أنت متأكد من حذف هذا التعميم؟')) {
+        announcements.splice(idx, 1);
+        saveSystemData();
+        showAlert('تم حذف التعميم بنجاح.');
+        renderAdminPanels();
     }
 }
 
