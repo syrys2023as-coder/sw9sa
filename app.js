@@ -606,17 +606,17 @@ window.renderMemberDashboard = function() {
                         <h3 class="text-base font-black text-slate-900 mt-2">الموقع: ${activeG.location} (${activeG.durationMins} دقيقة)</h3>
                         <p class="text-xs text-slate-500 mt-1">ملاحظة: ${activeG.note || 'لا توجد ملاحظات'}</p>
                     </div>
-                    <div>
+                    <div class="w-full md:w-auto">
                         ${activeG.videoUrl ? `
                             <div class="flex items-center gap-2">
-                                <span class="text-emerald-600 font-bold text-xs">✓ تم رفع فيديو الإثبات</span>
-                                <button onclick="openVideoModal('${activeG.videoUrl}')" class="px-3 py-1.5 bg-slate-900 text-white font-bold rounded-xl text-xs shadow">🎥 مشاهدة الفيديو</button>
+                                <span class="text-emerald-600 font-bold text-xs">✓ تم إرسال رابط الفيديو</span>
+                                <button onclick="openVideoModal('${activeG.videoUrl}')" class="px-3 py-1.5 bg-slate-900 text-white font-bold rounded-xl text-xs shadow">🎥 فتح الفيديو في نافذة خارجية</button>
                             </div>
                         ` : `
-                            <label class="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-md inline-block">
-                                🎥 رفع فيديو إثبات الخفارة (من الملفات)
-                                <input type="file" accept="video/*" class="hidden" onchange="uploadGuardVideo(event, '${activeG.id}')">
-                            </label>
+                            <div class="flex gap-2 items-center">
+                                <input type="text" id="guard-video-link-input" placeholder="الصق رابط الفيديو هنا..." class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:border-red-600 flex-1">
+                                <button onclick="submitGuardVideoLink(${activeG.id})" class="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs shadow-md whitespace-nowrap">إرسال الرابط</button>
+                            </div>
                         `}
                     </div>
                 </div>
@@ -652,55 +652,32 @@ window.renderMemberDashboard = function() {
     document.getElementById('member-dash-meta').innerText = `ديسكورد: ${currentUser.discordId || 'غير مسجل'} | المنصب: ${currentUser.positionTitle || 'فرد'}`;
 }
 
-window.uploadGuardVideo = function(e, guardId) {
-    const file = e.target.files[0];
-    if (!file) return;
+window.submitGuardVideoLink = function(guardId) {
+    const inputEl = document.getElementById('guard-video-link-input');
+    if (!inputEl) return;
+    const linkVal = inputEl.value.trim();
 
-    showAlert('جاري معالجة ورفع ملف الفيديو...');
+    if (!linkVal) {
+        showAlert('يرجى لصق رابط الفيديو أولاً!', true);
+        return;
+    }
 
-    const reader = new FileReader();
-    reader.onload = function(uploadEvent) {
-        const videoDataUrl = uploadEvent.target.result;
-        
-        const duty = guardDuties.find(g => String(g.id) === String(guardId));
-        if (duty) {
-            duty.videoUrl = videoDataUrl;
-            duty.status = 'completed';
-        }
+    const duty = guardDuties.find(g => String(g.id) === String(guardId));
+    if (duty) {
+        duty.videoUrl = linkVal;
+        duty.status = 'completed';
+    }
 
-        saveSystemData();
-        
-        showAlert('تم رفع الفيديو بنجاح وثبات حالته لدى القائد.');
-        renderMemberDashboard();
-        renderAdminPanels();
-    };
-    reader.onerror = function() {
-        showAlert('حدث خطأ أثناء قراءة ملف الفيديو، يجدر المحاولة بملف أصغر حجمًا.', true);
-    };
-    reader.readAsDataURL(file);
+    saveSystemData();
+    showAlert('تم إرسال وحفظ رابط فيديو الخفارة بنجاح.');
+    renderMemberDashboard();
+    renderAdminPanels();
 }
 
+// فتح الفيديو في نافذة مستقلة جديدة برا الموقع تماماً
 window.openVideoModal = function(url) {
-    let modal = document.getElementById('video-preview-modal');
-    if (!modal) {
-        modal = document.createElement('div');
-        modal.id = 'video-preview-modal';
-        modal.className = 'fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4';
-        document.body.appendChild(modal);
-    }
-    modal.innerHTML = `
-        <div class="bg-white rounded-3xl overflow-hidden max-w-3xl w-full p-4 space-y-3 shadow-2xl">
-            <div class="flex justify-between items-center border-b pb-2">
-                <h3 class="font-black text-sm text-slate-900">مشاهدة فيديو إثبات الخفارة</h3>
-                <button onclick="document.getElementById('video-preview-modal').remove()" class="px-3 py-1 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-bold transition">✕ إغلاق</button>
-            </div>
-            <div class="bg-black rounded-2xl overflow-hidden flex justify-center items-center">
-                <video id="modal-video-source" controls autoplay class="w-full max-h-[70vh] object-contain"></video>
-            </div>
-        </div>
-    `;
-    const vSource = document.getElementById('modal-video-source');
-    if (vSource) vSource.src = url;
+    if (!url) return;
+    window.open(url, '_blank');
 }
 
 window.handleUpdateCommanderProfile = function(e) {
@@ -1278,11 +1255,11 @@ function renderGuardDuties() {
         <tr>
             <td class="p-4 font-bold">سيف ${g.memberCode} - ${g.memberName}</td>
             <td class="p-4 text-xs">${g.location} <br><span class="text-slate-500">ملاحظة: ${g.note || 'لا توجد'}</span>
-                ${g.videoUrl ? `<br><button onclick="openVideoModal('${g.videoUrl}')" class="mt-1 px-3 py-1 bg-slate-900 text-white rounded-lg font-bold text-xs shadow inline-flex items-center gap-1">🎥 مشاهدة الفيديو</button>` : ''}
+                ${g.videoUrl ? `<br><button onclick="openVideoModal('${g.videoUrl}')" class="mt-1 px-3 py-1 bg-slate-900 text-white rounded-lg font-bold text-xs shadow inline-flex items-center gap-1">🎥 فتح في نافذة خارجية</button>` : ''}
             </td>
             <td class="p-4 text-xs font-bold text-red-600">${g.issuerRank} / ${g.issuerName}</td>
             <td class="p-4 text-xs">
-                ${(g.status === 'completed' || (g.videoUrl && g.videoUrl.trim() !== '')) ? '<span class="text-emerald-600 font-bold block">مكتملة (تم رفع الفيديو)</span>' : '<span class="text-amber-600 font-bold block">بانتظار رفع الفيديو</span>'}
+                ${(g.status === 'completed' || (g.videoUrl && g.videoUrl.trim() !== '')) ? '<span class="text-emerald-600 font-bold block">مكتملة (تم إرسال الرابط)</span>' : '<span class="text-amber-600 font-bold block">بانتظار إرسال الرابط</span>'}
             </td>
             <td class="p-4"><button onclick="deleteGuard(${g.id})" class="px-2 py-1 bg-slate-200 rounded text-xs">حذف</button></td>
         </tr>
